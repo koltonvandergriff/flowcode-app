@@ -29,7 +29,7 @@ function MenuItem({ icon, label, onClick, colors, accent }) {
   );
 }
 
-export default function Header({ onOpenSettings, onOpenHelp, onOpenFeedback, onOpenHistory, onOpenSubscription, onOpenKeybindings, onOpenPlugins, onOpenPrompts, onOpenCommands }) {
+export default function Header({ onOpenSettings, onOpenHelp, onOpenFeedback, onOpenHistory, onOpenSubscription, onOpenKeybindings, onOpenPlugins, onOpenAnalytics, onOpenPrompts, onOpenCommands }) {
   const { colors, themeName, toggleTheme } = useTheme();
   const isElectron = !!window.flowcode?.window;
   const [menuOpen, setMenuOpen] = useState(false);
@@ -128,6 +128,8 @@ export default function Header({ onOpenSettings, onOpenHelp, onOpenFeedback, onO
                 icon={<svg {...menuIconProps}><circle cx="12" cy="12" r="10" /><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>} />
               <MenuItem colors={colors} label="Session History" onClick={() => handleMenuItem(onOpenHistory)}
                 icon={<svg {...menuIconProps}><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>} />
+              <MenuItem colors={colors} label="Reports & Analytics" accent={colors.accent.purple} onClick={() => handleMenuItem(onOpenAnalytics)}
+                icon={<svg {...menuIconProps}><line x1="18" y1="20" x2="18" y2="10" /><line x1="12" y1="20" x2="12" y2="4" /><line x1="6" y1="20" x2="6" y2="14" /></svg>} />
               <MenuItem colors={colors} label="Prompt Templates" onClick={() => handleMenuItem(onOpenPrompts)}
                 icon={<svg {...menuIconProps}><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /></svg>} />
               <MenuItem colors={colors} label="Command Library" onClick={() => handleMenuItem(onOpenCommands)}

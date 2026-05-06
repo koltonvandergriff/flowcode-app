@@ -168,6 +168,11 @@ export default function AnalyticsDashboard({ open, onClose }) {
   const [rawEntries, setRawEntries] = useState([]);
   const [usage, setUsage] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('overview');
+  const [cbReport, setCbReport] = useState(null);
+  const [cbOptimize, setCbOptimize] = useState(null);
+  const [cbPeriod, setCbPeriod] = useState('7days');
+  const [cbLoading, setCbLoading] = useState(false);
 
   const CHART_COLORS = {
     cost: colors.accent.green,
@@ -205,9 +210,26 @@ export default function AnalyticsDashboard({ open, onClose }) {
     }
   }, []);
 
+  const loadCodeburn = useCallback(async (period) => {
+    if (!window.flowcode?.codeburn) return;
+    setCbLoading(true);
+    try {
+      const [report, optimize] = await Promise.all([
+        window.flowcode.codeburn.report(period || cbPeriod),
+        window.flowcode.codeburn.optimize(),
+      ]);
+      setCbReport(report);
+      setCbOptimize(optimize);
+    } catch {}
+    setCbLoading(false);
+  }, [cbPeriod]);
+
   useEffect(() => {
-    if (open) loadData();
-  }, [open, loadData]);
+    if (open) {
+      loadData();
+      loadCodeburn();
+    }
+  }, [open, loadData, loadCodeburn]);
 
   // ---------------------------------------------------------------------------
   // Derived data
@@ -296,18 +318,22 @@ export default function AnalyticsDashboard({ open, onClose }) {
               fontSize: 18, fontWeight: 700, fontFamily: FONTS.display,
               letterSpacing: 1, color: '#fff', margin: 0,
             }}>
-              Analytics
+              Reports
             </h2>
-            <span style={{
-              fontSize: 9, fontWeight: 600, color: colors.text.ghost, fontFamily: fc,
-              padding: '2px 8px', background: colors.bg.surface, borderRadius: 4,
-              border: `1px solid ${colors.border.subtle}`,
-            }}>
-              LAST 30 DAYS
-            </span>
+            {['overview', 'codeburn'].map((tab) => (
+              <button key={tab} onClick={() => setActiveTab(tab)} style={{
+                all: 'unset', cursor: 'pointer', fontSize: 10, fontWeight: 700,
+                padding: '4px 12px', borderRadius: 6, fontFamily: fc, letterSpacing: 0.8,
+                background: activeTab === tab ? `${colors.accent.purple}20` : colors.bg.surface,
+                color: activeTab === tab ? colors.accent.purple : colors.text.dim,
+                border: `1px solid ${activeTab === tab ? colors.accent.purple + '40' : colors.border.subtle}`,
+                transition: 'all .15s',
+                textTransform: 'uppercase',
+              }}>{tab === 'codeburn' ? 'CodeBurn' : 'Overview'}</button>
+            ))}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <button onClick={loadData} style={{
+            <button onClick={() => { loadData(); loadCodeburn(); }} style={{
               all: 'unset', cursor: 'pointer', fontSize: 10, fontWeight: 700,
               padding: '5px 12px', borderRadius: 6, fontFamily: fc,
               color: colors.text.dim, background: colors.bg.surface,
@@ -329,7 +355,7 @@ export default function AnalyticsDashboard({ open, onClose }) {
           display: 'flex', flexDirection: 'column', gap: 24,
           scrollbarWidth: 'thin', scrollbarColor: `${colors.border.subtle} transparent`,
         }}>
-          {loading ? (
+          {activeTab === 'overview' && (loading ? (
             <div style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               padding: 60, color: colors.text.dim, fontFamily: fc, fontSize: 13,
@@ -499,7 +525,184 @@ export default function AnalyticsDashboard({ open, onClose }) {
                 <SessionsTable entries={rawEntries} colors={colors} />
               </div>
             </>
-          )}
+          ))}
+
+          {activeTab === 'codeburn' && (cbLoading ? (
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              padding: 60, color: colors.text.dim, fontFamily: fc, fontSize: 13,
+            }}>
+              Loading CodeBurn report...
+            </div>
+          ) : !cbReport ? (
+            <div style={{
+              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+              padding: 60, gap: 12,
+            }}>
+              <span style={{ fontSize: 13, color: colors.text.dim, fontFamily: fc }}>
+                CodeBurn reads your Claude Code session logs to show where tokens go.
+              </span>
+              <button onClick={() => loadCodeburn()} style={{
+                all: 'unset', cursor: 'pointer', fontSize: 11, fontWeight: 700,
+                padding: '8px 20px', borderRadius: 6, fontFamily: fc, color: '#fff',
+                background: `linear-gradient(135deg, ${colors.accent.green}, ${colors.accent.purple})`,
+              }}>LOAD REPORT</button>
+            </div>
+          ) : (
+            <>
+              {/* Period selector */}
+              <div style={{ display: 'flex', gap: 6 }}>
+                {[{ id: 'today', label: 'Today' }, { id: '7days', label: '7 Days' }, { id: '30days', label: '30 Days' }, { id: 'month', label: 'This Month' }].map((p) => (
+                  <button key={p.id} onClick={() => { setCbPeriod(p.id); loadCodeburn(p.id); }} style={{
+                    all: 'unset', cursor: 'pointer', fontSize: 10, fontWeight: 700, padding: '5px 12px',
+                    borderRadius: 6, fontFamily: fc,
+                    background: cbPeriod === p.id ? `${colors.accent.cyan}20` : colors.bg.surface,
+                    color: cbPeriod === p.id ? colors.accent.cyan : colors.text.dim,
+                    border: `1px solid ${cbPeriod === p.id ? colors.accent.cyan + '40' : colors.border.subtle}`,
+                  }}>{p.label}</button>
+                ))}
+              </div>
+
+              {/* Overview cards */}
+              {cbReport.overview && (
+                <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                  <SummaryCard label="Total Cost" value={fmtCost(cbReport.overview.cost || 0)} color={colors.accent.green} colors={colors} />
+                  <SummaryCard label="API Calls" value={cbReport.overview.calls || 0} color={colors.accent.cyan} colors={colors} />
+                  <SummaryCard label="Sessions" value={cbReport.overview.sessions || 0} color={colors.accent.purple} colors={colors} />
+                  <SummaryCard label="Cache Hit" value={`${(cbReport.overview.cacheHitPercent || 0).toFixed(0)}%`} color={colors.accent.amber} colors={colors} />
+                </div>
+              )}
+
+              {/* Projects breakdown */}
+              {cbReport.projects?.length > 0 && (
+                <div>
+                  <h3 style={{ fontSize: 11, fontWeight: 700, color: colors.text.muted, fontFamily: fc, letterSpacing: 1.5, margin: '0 0 12px' }}>PROJECTS</h3>
+                  <div style={{ background: colors.bg.surface, borderRadius: 10, border: `1px solid ${colors.border.subtle}`, overflow: 'hidden' }}>
+                    {cbReport.projects.slice(0, 10).map((proj, i) => (
+                      <div key={i} style={{
+                        display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px',
+                        borderBottom: i < cbReport.projects.length - 1 ? `1px solid ${colors.border.subtle}20` : 'none',
+                      }}>
+                        <span style={{ width: 10, height: 10, borderRadius: 3, background: PIE_PALETTE[i % PIE_PALETTE.length], flexShrink: 0 }} />
+                        <span style={{ flex: 1, fontSize: 11, fontFamily: fc, color: colors.text.secondary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {proj.name || proj.path?.split(/[/\\]/).pop() || 'unknown'}
+                        </span>
+                        <span style={{ fontSize: 10, fontFamily: fc, color: colors.text.ghost }}>{proj.sessions || 0} sessions</span>
+                        <span style={{ fontSize: 11, fontFamily: fc, fontWeight: 700, color: colors.accent.green }}>{fmtCost(proj.cost || 0)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Models breakdown */}
+              {cbReport.models?.length > 0 && (
+                <div>
+                  <h3 style={{ fontSize: 11, fontWeight: 700, color: colors.text.muted, fontFamily: fc, letterSpacing: 1.5, margin: '0 0 12px' }}>MODELS</h3>
+                  <div style={{ background: colors.bg.surface, borderRadius: 10, border: `1px solid ${colors.border.subtle}`, overflow: 'hidden' }}>
+                    {cbReport.models.map((model, i) => (
+                      <div key={i} style={{
+                        display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px',
+                        borderBottom: i < cbReport.models.length - 1 ? `1px solid ${colors.border.subtle}20` : 'none',
+                      }}>
+                        <span style={{ width: 10, height: 10, borderRadius: 3, background: PIE_PALETTE[i % PIE_PALETTE.length], flexShrink: 0 }} />
+                        <span style={{ flex: 1, fontSize: 11, fontFamily: fc, color: colors.text.secondary }}>{model.name}</span>
+                        <span style={{ fontSize: 10, fontFamily: fc, color: colors.text.ghost }}>{model.calls} calls</span>
+                        <span style={{ fontSize: 10, fontFamily: fc, color: colors.accent.cyan }}>{fmtTokens(model.inputTokens || 0)} in</span>
+                        <span style={{ fontSize: 10, fontFamily: fc, color: colors.accent.purple }}>{fmtTokens(model.outputTokens || 0)} out</span>
+                        <span style={{ fontSize: 11, fontFamily: fc, fontWeight: 700, color: colors.accent.green }}>{fmtCost(model.cost || 0)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Activities breakdown */}
+              {cbReport.activities?.length > 0 && (
+                <div>
+                  <h3 style={{ fontSize: 11, fontWeight: 700, color: colors.text.muted, fontFamily: fc, letterSpacing: 1.5, margin: '0 0 12px' }}>ACTIVITY BREAKDOWN</h3>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                    {cbReport.activities.map((act, i) => (
+                      <div key={i} style={{
+                        background: colors.bg.surface, borderRadius: 8, border: `1px solid ${colors.border.subtle}`,
+                        padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: 4,
+                      }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ fontSize: 11, fontWeight: 600, fontFamily: fc, color: colors.text.secondary }}>{act.category}</span>
+                          <span style={{ fontSize: 11, fontWeight: 700, fontFamily: fc, color: colors.accent.green }}>{fmtCost(act.cost || 0)}</span>
+                        </div>
+                        <div style={{ display: 'flex', gap: 12, fontSize: 9, fontFamily: fc, color: colors.text.ghost }}>
+                          <span>{act.turns || 0} turns</span>
+                          {act.oneShotRate != null && <span>1-shot: {(act.oneShotRate * 100).toFixed(0)}%</span>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Tools used */}
+              {cbReport.tools?.length > 0 && (
+                <div>
+                  <h3 style={{ fontSize: 11, fontWeight: 700, color: colors.text.muted, fontFamily: fc, letterSpacing: 1.5, margin: '0 0 12px' }}>TOP TOOLS</h3>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                    {cbReport.tools.slice(0, 15).map((tool, i) => (
+                      <span key={i} style={{
+                        fontSize: 10, fontFamily: fc, fontWeight: 600, padding: '4px 10px', borderRadius: 6,
+                        background: colors.bg.surface, border: `1px solid ${colors.border.subtle}`,
+                        color: colors.text.secondary,
+                      }}>{tool.name} <span style={{ color: colors.text.ghost }}>({tool.calls})</span></span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Optimization tips */}
+              {cbOptimize && (
+                <div>
+                  <h3 style={{ fontSize: 11, fontWeight: 700, color: colors.status.warning, fontFamily: fc, letterSpacing: 1.5, margin: '0 0 12px' }}>OPTIMIZATION TIPS</h3>
+                  <div style={{
+                    background: `${colors.status.warning}08`, borderRadius: 10,
+                    border: `1px solid ${colors.status.warning}20`, padding: 16,
+                    fontFamily: fc, fontSize: 11, color: colors.text.secondary, lineHeight: 1.6,
+                    whiteSpace: 'pre-wrap',
+                  }}>
+                    {typeof cbOptimize === 'string' ? cbOptimize :
+                      Array.isArray(cbOptimize) ? cbOptimize.map((tip, i) => (
+                        <div key={i} style={{ padding: '4px 0', borderBottom: i < cbOptimize.length - 1 ? `1px solid ${colors.border.subtle}15` : 'none' }}>
+                          {typeof tip === 'string' ? tip : tip.message || tip.suggestion || JSON.stringify(tip)}
+                        </div>
+                      )) : <span style={{ color: colors.text.ghost }}>No optimization suggestions at this time.</span>
+                    }
+                  </div>
+                </div>
+              )}
+
+              {/* Top sessions */}
+              {cbReport.topSessions?.length > 0 && (
+                <div>
+                  <h3 style={{ fontSize: 11, fontWeight: 700, color: colors.text.muted, fontFamily: fc, letterSpacing: 1.5, margin: '0 0 12px' }}>TOP SESSIONS BY COST</h3>
+                  <div style={{ background: colors.bg.surface, borderRadius: 10, border: `1px solid ${colors.border.subtle}`, overflow: 'hidden' }}>
+                    {cbReport.topSessions.slice(0, 10).map((s, i) => (
+                      <div key={i} style={{
+                        display: 'flex', alignItems: 'center', gap: 10, padding: '8px 14px',
+                        borderBottom: i < cbReport.topSessions.length - 1 ? `1px solid ${colors.border.subtle}20` : 'none',
+                      }}>
+                        <span style={{ fontSize: 10, fontFamily: fc, color: colors.text.ghost, minWidth: 65 }}>
+                          {s.date ? new Date(s.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '—'}
+                        </span>
+                        <span style={{ flex: 1, fontSize: 11, fontFamily: fc, color: colors.text.secondary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {s.project || 'unknown'}
+                        </span>
+                        <span style={{ fontSize: 10, fontFamily: fc, color: colors.text.ghost }}>{s.calls} calls</span>
+                        <span style={{ fontSize: 11, fontFamily: fc, fontWeight: 700, color: colors.accent.green }}>{fmtCost(s.cost || 0)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
+          ))}
         </div>
       </div>
     </div>

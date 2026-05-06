@@ -15,6 +15,29 @@ function estimateTokens(text) {
   return Math.ceil((text || '').length / 4);
 }
 
+function toOpenAIContent(msg) {
+  if (!msg.images?.length) return msg.content;
+  const parts = [];
+  if (msg.content) parts.push({ type: 'text', text: msg.content });
+  for (const img of msg.images) {
+    parts.push({ type: 'image_url', image_url: { url: img.dataUrl } });
+  }
+  return parts;
+}
+
+function toAnthropicContent(msg) {
+  if (!msg.images?.length) return msg.content;
+  const parts = [];
+  for (const img of msg.images) {
+    const match = img.dataUrl.match(/^data:(image\/\w+);base64,(.+)$/);
+    if (match) {
+      parts.push({ type: 'image', source: { type: 'base64', media_type: match[1], data: match[2] } });
+    }
+  }
+  if (msg.content) parts.push({ type: 'text', text: msg.content });
+  return parts;
+}
+
 async function* streamChatGPT(messages, apiKeyGetter) {
   const apiKey = await apiKeyGetter('OPENAI_API_KEY');
   if (!apiKey) {
@@ -27,7 +50,7 @@ async function* streamChatGPT(messages, apiKeyGetter) {
 
   const body = {
     model: 'gpt-4o',
-    messages: messages.map((m) => ({ role: m.role, content: m.content })),
+    messages: messages.map((m) => ({ role: m.role, content: toOpenAIContent(m) })),
     stream: true,
   };
 
@@ -151,7 +174,7 @@ async function* streamAnthropic(messages, apiKeyGetter) {
 
   const body = {
     model: 'claude-sonnet-4-6',
-    messages: messages.map((m) => ({ role: m.role, content: m.content })),
+    messages: messages.map((m) => ({ role: m.role, content: toAnthropicContent(m) })),
     max_tokens: 8192,
     stream: true,
   };

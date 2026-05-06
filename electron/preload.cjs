@@ -96,12 +96,19 @@ contextBridge.exposeInMainWorld('flowcode', {
 
   dialog: {
     pickFolder: (defaultPath) => ipcRenderer.invoke('dialog:pickFolder', defaultPath),
+    pickImages: () => ipcRenderer.invoke('dialog:pickImages'),
+    saveImageTemp: (data) => ipcRenderer.invoke('dialog:saveImageTemp', data),
   },
 
   git: {
     status: (cwd) => ipcRenderer.invoke('git:status', { cwd }),
     diff: (cwd, file) => ipcRenderer.invoke('git:diff', { cwd, file }),
     branch: (cwd) => ipcRenderer.invoke('git:branch', { cwd }),
+  },
+
+  codeburn: {
+    report: (period) => ipcRenderer.invoke('codeburn:report', { period }),
+    optimize: () => ipcRenderer.invoke('codeburn:optimize'),
   },
 
   update: {

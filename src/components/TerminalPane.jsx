@@ -5,6 +5,7 @@ import '@xterm/xterm/css/xterm.css';
 import { FONTS, PROVIDERS } from '../lib/constants';
 import { useTheme } from '../hooks/useTheme';
 import { ToastContext } from '../contexts/ToastContext';
+import { SettingsContext } from '../contexts/SettingsContext';
 import { useVoiceInput } from '../hooks/useVoiceInput';
 import { streamChat } from '../lib/aiChat';
 import { detectDevServerUrl } from '../lib/devServerDetector';
@@ -131,6 +132,27 @@ function ChatMessage({ msg, providerColor }) {
             ERROR
           </span>
         )}
+        {msg.images?.length > 0 && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: msg.content ? 6 : 0 }}>
+            {msg.images.map((img, i) => (
+              <img
+                key={i}
+                src={img.dataUrl}
+                alt={img.name || 'attached'}
+                style={{
+                  maxWidth: 200,
+                  maxHeight: 150,
+                  borderRadius: 6,
+                  border: `1px solid ${colors.border.subtle}`,
+                  cursor: 'pointer',
+                  objectFit: 'contain',
+                  background: colors.bg.surface,
+                }}
+                onClick={() => window.open(img.dataUrl, '_blank')}
+              />
+            ))}
+          </div>
+        )}
         {msg.content}
       </div>
     </div>
@@ -173,7 +195,15 @@ function TypingIndicator({ color }) {
 // ---------------------------------------------------------------------------
 // API Chat view — rendered inside the pane body for apiProvider providers
 // ---------------------------------------------------------------------------
-function ApiChatView({ id, provider, providerDef, inputVal, setInputVal, inputRef }) {
+function readFileAsDataUrl(file) {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve({ dataUrl: reader.result, name: file.name });
+    reader.readAsDataURL(file);
+  });
+}
+
+function ApiChatView({ id, provider, providerDef, inputVal, setInputVal, inputRef, attachedImages, setAttachedImages }) {
   const { colors } = useTheme();
   const [messages, setMessages] = useState([]);
   const [isStreaming, setIsStreaming] = useState(false);
@@ -198,17 +228,17 @@ function ApiChatView({ id, provider, providerDef, inputVal, setInputVal, inputRe
     }
   }, []);
 
-  const sendMessage = useCallback(async (text) => {
-    if (!text.trim() || isStreaming) return;
+  const sendMessage = useCallback(async (text, images) => {
+    if ((!text.trim() && !images?.length) || isStreaming) return;
 
-    const userMsg = { role: 'user', content: text.trim() };
+    const userMsg = { role: 'user', content: text.trim(), images: images?.length ? images : undefined };
     setMessages((prev) => [...prev, userMsg]);
     setIsStreaming(true);
 
-    // Build conversation history for the API
     const history = [...messages, userMsg].map((m) => ({
       role: m.role === 'error' ? 'assistant' : m.role,
       content: m.content,
+      images: m.images,
     }));
 
     let assistantContent = '';
@@ -268,10 +298,22 @@ function ApiChatView({ id, provider, providerDef, inputVal, setInputVal, inputRe
     return () => { delete window.__flowcodeApiChat?.[id]; };
   }, [id, sendMessage]);
 
+  const handleDrop = useCallback(async (e) => {
+    e.preventDefault();
+    const files = [...e.dataTransfer.files].filter((f) => f.type.startsWith('image/'));
+    if (!files.length) return;
+    const imgs = await Promise.all(files.map(readFileAsDataUrl));
+    setAttachedImages((prev) => [...prev, ...imgs]);
+  }, [setAttachedImages]);
+
   return (
-    <div style={{
-      flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0,
-    }}>
+    <div
+      onDragOver={(e) => e.preventDefault()}
+      onDrop={handleDrop}
+      style={{
+        flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0,
+      }}
+    >
       {/* Scrollable message list */}
       <div ref={scrollRef} style={{
         flex: 1, overflowY: 'auto', overflowX: 'hidden',
@@ -341,10 +383,14 @@ export default function TerminalPane({
   const [currentCwd, setCurrentCwd] = useState(cwd || null);
   const [previewUrl, setPreviewUrl] = useState(null);
   const [showPreview, setShowPreview] = useState(false);
+  const [attachedImages, setAttachedImages] = useState([]);
+  const [cavemanActive, setCavemanActive] = useState(false);
+  const cavemanInitRef = useRef(false);
   const ctxAlertedRef = useRef(0);
   const unsubDataRef = useRef(null);
   const unsubExitRef = useRef(null);
   const { addToast } = useContext(ToastContext);
+  const { settings } = useContext(SettingsContext);
 
   // Determine if this is an API-based provider
   const providerDef = useMemo(() => PROVIDERS.find((p) => p.id === provider), [provider]);
@@ -352,24 +398,43 @@ export default function TerminalPane({
 
   useEffect(() => { isDangerousRef.current = isDangerous; }, [isDangerous]);
 
+  useEffect(() => {
+    if (cavemanInitRef.current) return;
+    if (provider !== 'claude' || isApiProvider) return;
+    cavemanInitRef.current = true;
+    if (settings?.cavemanDefault) {
+      setCavemanActive(true);
+      setTimeout(() => sendToTerminal('/caveman\r'), 1500);
+    } else if (!localStorage.getItem('fc-caveman-hint')) {
+      localStorage.setItem('fc-caveman-hint', '1');
+      setTimeout(() => addToast('Tip: Enable Caveman mode (CM) to reduce token usage ~65%', 'info'), 3000);
+    }
+  }, [provider, isApiProvider, settings?.cavemanDefault]);
+
   const sendToTerminal = useCallback((text) => {
     window.flowcode?.terminal.write(id, text);
   }, [id]);
 
-  const handleInputSend = useCallback(() => {
+  const handleInputSend = useCallback(async () => {
     const text = inputVal.trim();
-    if (!text) return;
+    if (!text && !attachedImages.length) return;
 
     if (isApiProvider) {
-      // Dispatch to the ApiChatView
       const sendFn = window.__flowcodeApiChat?.[id];
-      if (sendFn) sendFn(text);
+      if (sendFn) sendFn(text, attachedImages.length ? attachedImages : undefined);
     } else {
-      sendToTerminal(text + '\r');
+      if (attachedImages.length) {
+        for (const img of attachedImages) {
+          const filePath = img.filePath || await window.flowcode?.dialog?.saveImageTemp({ dataUrl: img.dataUrl, name: img.name });
+          if (filePath) sendToTerminal(filePath + '\r');
+        }
+      }
+      if (text) sendToTerminal(text + '\r');
     }
     setInputVal('');
+    setAttachedImages([]);
     inputRef.current?.focus();
-  }, [inputVal, sendToTerminal, isApiProvider, id]);
+  }, [inputVal, attachedImages, sendToTerminal, isApiProvider, id]);
 
   const pickFolder = useCallback(async () => {
     const folder = await window.flowcode?.dialog.pickFolder(currentCwd);
@@ -393,6 +458,21 @@ export default function TerminalPane({
     window.addEventListener('flowcode:insertToTerminal', handler);
     return () => window.removeEventListener('flowcode:insertToTerminal', handler);
   }, [id]);
+
+  const handlePickImages = useCallback(async () => {
+    const imgs = await window.flowcode?.dialog?.pickImages();
+    if (imgs?.length) setAttachedImages((prev) => [...prev, ...imgs]);
+  }, []);
+
+  const handlePasteImage = useCallback(async (e) => {
+    const items = [...(e.clipboardData?.items || [])];
+    const imageItems = items.filter((item) => item.type.startsWith('image/'));
+    if (!imageItems.length) return;
+    e.preventDefault();
+    const files = imageItems.map((item) => item.getAsFile()).filter(Boolean);
+    const imgs = await Promise.all(files.map(readFileAsDataUrl));
+    setAttachedImages((prev) => [...prev, ...imgs]);
+  }, []);
 
   const { listening, interim, lastSent, status: voiceStatus, toggle: toggleVoice } = useVoiceInput(
     isApiProvider
@@ -575,10 +655,24 @@ export default function TerminalPane({
     ? (isDangerous ? colors.status.error : providerDef?.color || colors.accent.green)
     : (isDangerous ? colors.status.error : colors.accent.green);
 
+  const handleOuterDrop = useCallback(async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (isApiProvider && e.dataTransfer?.files?.length) {
+      const files = [...e.dataTransfer.files].filter((f) => f.type.startsWith('image/'));
+      if (files.length) {
+        const imgs = await Promise.all(files.map(readFileAsDataUrl));
+        setAttachedImages((prev) => [...prev, ...imgs]);
+        return;
+      }
+    }
+    onDrop?.();
+  }, [isApiProvider, onDrop]);
+
   return (
     <div
-      onDragOver={(e) => { e.preventDefault(); onDragOver?.(); }}
-      onDrop={(e) => { e.preventDefault(); onDrop?.(); }}
+      onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); onDragOver?.(); }}
+      onDrop={handleOuterDrop}
       style={{
         background: colors.bg.raised, border: `2px solid ${borderColor}`,
         borderRadius: 14, display: 'flex', flexDirection: 'column',
@@ -707,6 +801,34 @@ export default function TerminalPane({
           </button>
         )}
 
+        {/* Caveman mode toggle — Claude CLI only */}
+        {provider === 'claude' && !isApiProvider && (
+          <button onClick={() => {
+            setCavemanActive((v) => !v);
+            sendToTerminal('/caveman\r');
+          }} style={{
+            all: 'unset', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4,
+            padding: '2px 6px', borderRadius: 4, fontFamily: fc, fontSize: 9, fontWeight: 700,
+            background: cavemanActive ? '#f0a05018' : colors.bg.surface,
+            color: cavemanActive ? '#f0a050' : colors.text.dim,
+            border: `1px solid ${cavemanActive ? '#f0a05030' : colors.border.subtle}`,
+          }}>
+            <div style={{
+              width: 24, height: 12, borderRadius: 6, position: 'relative',
+              background: cavemanActive ? '#f0a050' : colors.border.subtle,
+              transition: 'background .25s ease',
+            }}>
+              <div style={{
+                width: 8, height: 8, borderRadius: '50%', position: 'absolute', top: 2,
+                left: cavemanActive ? 14 : 2,
+                background: cavemanActive ? '#fff' : colors.text.dim,
+                transition: 'left .25s ease',
+              }} />
+            </div>
+            <span style={{ color: cavemanActive ? '#f0a050' : colors.text.ghost }}>{cavemanActive ? 'CAVEMAN' : 'CM'}</span>
+          </button>
+        )}
+
         {/* Danger toggle */}
         <button onClick={onToggleDanger} style={{
           all: 'unset', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4,
@@ -727,7 +849,7 @@ export default function TerminalPane({
               transition: 'left .25s ease',
             }} />
           </div>
-          {isDangerous && <span style={{ color: colors.status.error }}>DANGER</span>}
+          <span style={{ color: isDangerous ? colors.status.error : colors.text.ghost }}>{isDangerous ? 'DANGER' : 'DG'}</span>
         </button>
 
         {/* Voice toggle */}
@@ -799,6 +921,8 @@ export default function TerminalPane({
           inputVal={inputVal}
           setInputVal={setInputVal}
           inputRef={inputRef}
+          attachedImages={attachedImages}
+          setAttachedImages={setAttachedImages}
         />
       ) : (
         <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
@@ -842,16 +966,66 @@ export default function TerminalPane({
         </div>
       )}
 
+      {/* Attached images preview strip */}
+      {attachedImages.length > 0 && (
+        <div style={{
+          display: 'flex', gap: 6, padding: '6px 12px', alignItems: 'center',
+          borderTop: `1px solid ${colors.border.subtle}`, background: colors.bg.overlay,
+          flexShrink: 0, overflowX: 'auto',
+        }}>
+          {attachedImages.map((img, i) => (
+            <div key={i} style={{ position: 'relative', flexShrink: 0 }}>
+              <img src={img.dataUrl} alt={img.name} style={{
+                width: 48, height: 48, objectFit: 'cover', borderRadius: 6,
+                border: `1px solid ${colors.border.subtle}`,
+              }} />
+              <button onClick={() => setAttachedImages((prev) => prev.filter((_, j) => j !== i))} style={{
+                all: 'unset', cursor: 'pointer', position: 'absolute', top: -4, right: -4,
+                width: 16, height: 16, borderRadius: '50%', display: 'flex',
+                alignItems: 'center', justifyContent: 'center',
+                background: colors.status.error, color: '#fff', fontSize: 10, fontWeight: 700,
+                lineHeight: 1,
+              }}>×</button>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Input bar with send button */}
       <div style={{
         display: 'flex', gap: 8, padding: '8px 12px', alignItems: 'center',
-        borderTop: `1px solid ${colors.border.subtle}`, background: colors.bg.overlay,
+        borderTop: attachedImages.length ? 'none' : `1px solid ${colors.border.subtle}`,
+        background: colors.bg.overlay,
         flexShrink: 0,
       }}>
+        {/* Image attach button */}
+        <button
+          onClick={handlePickImages}
+            title="Attach image"
+            style={{
+              all: 'unset', cursor: 'pointer', display: 'flex', alignItems: 'center',
+              justifyContent: 'center', width: 28, height: 28, borderRadius: 6,
+              background: attachedImages.length ? `${colors.accent.cyan}18` : colors.bg.surface,
+              border: `1px solid ${attachedImages.length ? `${colors.accent.cyan}40` : colors.border.subtle}`,
+              color: attachedImages.length ? colors.accent.cyan : colors.text.dim,
+              transition: 'all .15s',
+              flexShrink: 0,
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.borderColor = colors.accent.cyan; e.currentTarget.style.color = colors.accent.cyan; }}
+            onMouseLeave={(e) => { e.currentTarget.style.borderColor = attachedImages.length ? `${colors.accent.cyan}40` : colors.border.subtle; e.currentTarget.style.color = attachedImages.length ? colors.accent.cyan : colors.text.dim; }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+              <circle cx="8.5" cy="8.5" r="1.5" />
+              <polyline points="21 15 16 10 5 21" />
+            </svg>
+          </button>
+
         <input
           ref={inputRef}
           value={inputVal}
           onChange={(e) => setInputVal(e.target.value)}
+          onPaste={handlePasteImage}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
               e.preventDefault();
@@ -874,7 +1048,7 @@ export default function TerminalPane({
               : `linear-gradient(135deg, ${colors.accent.green}, ${colors.accent.purple})`,
             boxShadow: `0 2px 8px ${(isApiProvider ? providerDef?.color : colors.accent.green) || colors.accent.green}30`,
             transition: 'all .2s ease',
-            opacity: inputVal.trim() ? 1 : 0.5,
+            opacity: (inputVal.trim() || attachedImages.length) ? 1 : 0.5,
           }}
           onMouseEnter={(e) => { e.target.style.transform = 'translateY(-1px)'; e.target.style.boxShadow = `0 4px 12px ${(isApiProvider ? providerDef?.color : colors.accent.green) || colors.accent.green}40`; }}
           onMouseLeave={(e) => { e.target.style.transform = 'none'; e.target.style.boxShadow = `0 2px 8px ${(isApiProvider ? providerDef?.color : colors.accent.green) || colors.accent.green}30`; }}

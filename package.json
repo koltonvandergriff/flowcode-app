@@ -14,6 +14,7 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.105.3",
+    "codeburn": "^0.9.6",
     "electron-store": "^10.0.0",
     "electron-updater": "^6.3.9",
     "node-pty": "^1.1.0"

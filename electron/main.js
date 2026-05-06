@@ -266,6 +266,73 @@ ipcMain.handle('dialog:pickFolder', async (_, defaultPath) => {
   return result.canceled ? null : result.filePaths[0];
 });
 
+ipcMain.handle('dialog:pickImages', async () => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    properties: ['openFile', 'multiSelections'],
+    filters: [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg'] }],
+  });
+  if (result.canceled) return [];
+  const fs = await import('fs');
+  const path = await import('path');
+  return result.filePaths.map((fp) => {
+    const ext = path.default.extname(fp).slice(1).toLowerCase();
+    const mime = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp', bmp: 'image/bmp', svg: 'image/svg+xml' }[ext] || 'image/png';
+    const data = fs.default.readFileSync(fp);
+    const b64 = data.toString('base64');
+    return { dataUrl: `data:${mime};base64,${b64}`, name: path.default.basename(fp), filePath: fp };
+  });
+});
+
+ipcMain.handle('dialog:saveImageTemp', async (_, { dataUrl, name }) => {
+  const fs = await import('fs');
+  const path = await import('path');
+  const os = await import('os');
+  const tmpDir = path.default.join(os.default.tmpdir(), 'flowcode-images');
+  if (!fs.default.existsSync(tmpDir)) fs.default.mkdirSync(tmpDir, { recursive: true });
+  const match = dataUrl.match(/^data:(image\/\w+);base64,(.+)$/);
+  if (!match) return null;
+  const ext = match[1].split('/')[1];
+  const filename = `${name || 'image'}-${Date.now()}.${ext}`;
+  const filePath = path.default.join(tmpDir, filename);
+  fs.default.writeFileSync(filePath, Buffer.from(match[2], 'base64'));
+  return filePath;
+});
+
+// --- CodeBurn Analytics IPC ---
+
+ipcMain.handle('codeburn:report', async (_, { period }) => {
+  try {
+    const npxPath = process.platform === 'win32' ? 'npx.cmd' : 'npx';
+    const args = ['codeburn'];
+    if (period === 'today') args.push('today');
+    else if (period === 'month') args.push('month');
+    else args.push('report', '-p', period || '7days');
+    args.push('--format', 'json');
+    const { stdout } = await execFileAsync(npxPath, args, {
+      timeout: 30000,
+      cwd: app.getPath('home'),
+    });
+    return JSON.parse(stdout);
+  } catch (err) {
+    console.error('[CodeBurn]', err.message);
+    return null;
+  }
+});
+
+ipcMain.handle('codeburn:optimize', async () => {
+  try {
+    const npxPath = process.platform === 'win32' ? 'npx.cmd' : 'npx';
+    const { stdout } = await execFileAsync(npxPath, ['codeburn', 'optimize', '--format', 'json'], {
+      timeout: 30000,
+      cwd: app.getPath('home'),
+    });
+    return JSON.parse(stdout);
+  } catch (err) {
+    console.error('[CodeBurn optimize]', err.message);
+    return null;
+  }
+});
+
 // --- Git IPC ---
 
 ipcMain.handle('git:status', async (_, { cwd }) => {

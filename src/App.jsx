@@ -27,6 +27,7 @@ import KeybindingsPanel from './components/KeybindingsPanel';
 import PluginManagerPanel from './components/PluginManager';
 import UpdateNotification from './components/UpdateNotification';
 import PopoutTerminal from './components/PopoutTerminal';
+import AnalyticsDashboard from './components/AnalyticsDashboard';
 import { isAuthenticated, logout } from './lib/authService';
 
 const RIGHT_PANEL_WIDTH = 280;
@@ -145,6 +146,17 @@ function RightSidebarPanel({ open, onToggle, activeTab, onTabChange, onInsert })
 
 function AppInner({ onLogout }) {
   const { colors } = useTheme();
+
+  useEffect(() => {
+    const prevent = (e) => e.preventDefault();
+    document.addEventListener('dragover', prevent);
+    document.addEventListener('drop', prevent);
+    return () => {
+      document.removeEventListener('dragover', prevent);
+      document.removeEventListener('drop', prevent);
+    };
+  }, []);
+
   const [dangerFlags, setDangerFlags] = useState({ global: false, perTerminal: {} });
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [gitOpen, setGitOpen] = useState(false);
@@ -156,6 +168,7 @@ function AppInner({ onLogout }) {
   const [subscriptionOpen, setSubscriptionOpen] = useState(false);
   const [keybindingsOpen, setKeybindingsOpen] = useState(false);
   const [pluginsOpen, setPluginsOpen] = useState(false);
+  const [analyticsOpen, setAnalyticsOpen] = useState(false);
   const { macros, createMacro, deleteMacro } = useMacros();
   const { activeData } = useContext(WorkspaceContext);
 
@@ -232,6 +245,7 @@ function AppInner({ onLogout }) {
           onOpenSubscription={() => setSubscriptionOpen(true)}
           onOpenKeybindings={() => setKeybindingsOpen(true)}
           onOpenPlugins={() => setPluginsOpen(true)}
+          onOpenAnalytics={() => setAnalyticsOpen(true)}
           onOpenPrompts={() => { setRightPanelOpen(true); setRightTab('prompts'); }}
           onOpenCommands={() => { setRightPanelOpen(true); setRightTab('commands'); }}
         />
@@ -299,6 +313,7 @@ function AppInner({ onLogout }) {
         <SubscriptionPanel open={subscriptionOpen} onClose={() => setSubscriptionOpen(false)} />
         <KeybindingsPanel open={keybindingsOpen} onClose={() => setKeybindingsOpen(false)} />
         <PluginManagerPanel open={pluginsOpen} onClose={() => setPluginsOpen(false)} />
+        <AnalyticsDashboard open={analyticsOpen} onClose={() => setAnalyticsOpen(false)} />
     </div>
   );
 }
