@@ -1,5 +1,6 @@
 import pty from 'node-pty';
 import { platform } from 'os';
+import { join } from 'path';
 
 export class PtyManager {
   constructor() {
@@ -16,7 +17,7 @@ export class PtyManager {
       name: 'xterm-256color',
       cols: opts.cols || 120,
       rows: opts.rows || 30,
-      cwd: opts.cwd || process.env.HOME || process.env.USERPROFILE,
+      cwd: opts.cwd || join(process.env.USERPROFILE || process.env.HOME, 'Desktop', 'Claude'),
       env: { ...process.env, TERM: 'xterm-256color' },
     });
 

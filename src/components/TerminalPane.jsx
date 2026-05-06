@@ -1,10 +1,14 @@
-import { useState, useEffect, useRef, useCallback, useContext } from 'react';
+import { useState, useEffect, useRef, useCallback, useContext, useMemo } from 'react';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import '@xterm/xterm/css/xterm.css';
-import { FONTS, COLORS, TERMINAL_THEME } from '../lib/constants';
+import { FONTS, PROVIDERS } from '../lib/constants';
+import { useTheme } from '../hooks/useTheme';
 import { ToastContext } from '../contexts/ToastContext';
 import { useVoiceInput } from '../hooks/useVoiceInput';
+import { streamChat } from '../lib/aiChat';
+import { detectDevServerUrl } from '../lib/devServerDetector';
+import PreviewPane from './PreviewPane';
 
 const fc = FONTS.mono;
 
@@ -35,11 +39,35 @@ function parseContextUsage(raw) {
   return m ? parseInt(m[1], 10) : null;
 }
 
+function parseTokenUsage(raw) {
+  const text = raw.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '');
+  // Claude CLI: "input: 1,234 tokens | output: 567 tokens" or "Input tokens: 1234"
+  const inputMatch = text.match(/input[:\s]+([0-9,]+)\s*(?:tokens|tok)/i);
+  const outputMatch = text.match(/output[:\s]+([0-9,]+)\s*(?:tokens|tok)/i);
+  if (inputMatch || outputMatch) {
+    return {
+      input: inputMatch ? parseInt(inputMatch[1].replace(/,/g, ''), 10) : 0,
+      output: outputMatch ? parseInt(outputMatch[1].replace(/,/g, ''), 10) : 0,
+    };
+  }
+  // Claude CLI cost line: "$0.0234 cost"
+  const costMatch = text.match(/\$([0-9.]+)\s*(?:cost|spent|total)/i);
+  if (costMatch) {
+    const cost = parseFloat(costMatch[1]);
+    // Estimate tokens from cost (assume Sonnet rates)
+    const estInput = Math.round((cost / 3) * 1_000_000 * 0.7);
+    const estOutput = Math.round((cost / 15) * 1_000_000 * 0.3);
+    return { input: estInput, output: estOutput };
+  }
+  return null;
+}
+
 function ContextBar({ percent }) {
+  const { colors } = useTheme();
   if (percent == null) return null;
-  const color = percent >= 90 ? COLORS.status.error : percent >= 70 ? COLORS.status.warning : COLORS.accent.green;
+  const color = percent >= 90 ? colors.status.error : percent >= 70 ? colors.status.warning : colors.accent.green;
   return (
-    <div style={{ height: 3, background: COLORS.bg.surface, borderRadius: 2, flexShrink: 0 }}>
+    <div style={{ height: 3, background: colors.bg.surface, borderRadius: 2, flexShrink: 0 }}>
       <div style={{
         height: '100%', width: `${percent}%`, borderRadius: 2,
         background: color, transition: 'width .5s ease, background .5s ease',
@@ -48,28 +76,279 @@ function ContextBar({ percent }) {
   );
 }
 
+// ---------------------------------------------------------------------------
+// Chat message bubble for API-based providers
+// ---------------------------------------------------------------------------
+function ChatMessage({ msg, providerColor }) {
+  const { colors } = useTheme();
+  const isUser = msg.role === 'user';
+  const isError = msg.role === 'error';
+  return (
+    <div style={{
+      display: 'flex',
+      justifyContent: isUser ? 'flex-end' : 'flex-start',
+      padding: '4px 12px',
+    }}>
+      <div style={{
+        maxWidth: '85%',
+        padding: '8px 12px',
+        borderRadius: isUser ? '12px 12px 2px 12px' : '12px 12px 12px 2px',
+        background: isError
+          ? `${colors.status.error}18`
+          : isUser
+            ? `${colors.accent.purple}18`
+            : `${providerColor}12`,
+        border: `1px solid ${isError ? colors.status.error + '30' : isUser ? colors.accent.purple + '25' : providerColor + '20'}`,
+        color: isError ? colors.status.error : colors.text.primary,
+        fontFamily: fc,
+        fontSize: 12,
+        lineHeight: 1.55,
+        whiteSpace: 'pre-wrap',
+        wordBreak: 'break-word',
+      }}>
+        {!isUser && !isError && (
+          <span style={{
+            display: 'block',
+            fontSize: 9,
+            fontWeight: 700,
+            color: providerColor,
+            marginBottom: 4,
+            letterSpacing: 0.8,
+            textTransform: 'uppercase',
+          }}>
+            {msg.providerName || 'AI'}
+          </span>
+        )}
+        {isError && (
+          <span style={{
+            display: 'block',
+            fontSize: 9,
+            fontWeight: 700,
+            color: colors.status.error,
+            marginBottom: 4,
+            letterSpacing: 0.8,
+          }}>
+            ERROR
+          </span>
+        )}
+        {msg.content}
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Typing indicator dots
+// ---------------------------------------------------------------------------
+function TypingIndicator({ color }) {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'flex-start', padding: '4px 12px' }}>
+      <div style={{
+        padding: '8px 16px',
+        borderRadius: '12px 12px 12px 2px',
+        background: `${color}12`,
+        border: `1px solid ${color}20`,
+        display: 'flex',
+        gap: 5,
+        alignItems: 'center',
+      }}>
+        {[0, 1, 2].map((i) => (
+          <span key={i} style={{
+            width: 6, height: 6, borderRadius: '50%', background: color,
+            opacity: 0.6,
+            animation: `typingDot 1.2s ease-in-out ${i * 0.2}s infinite`,
+          }} />
+        ))}
+      </div>
+      <style>{`
+        @keyframes typingDot {
+          0%, 60%, 100% { opacity: 0.3; transform: translateY(0); }
+          30% { opacity: 0.9; transform: translateY(-3px); }
+        }
+      `}</style>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// API Chat view — rendered inside the pane body for apiProvider providers
+// ---------------------------------------------------------------------------
+function ApiChatView({ id, provider, providerDef, inputVal, setInputVal, inputRef }) {
+  const { colors } = useTheme();
+  const [messages, setMessages] = useState([]);
+  const [isStreaming, setIsStreaming] = useState(false);
+  const scrollRef = useRef(null);
+  const abortRef = useRef(null);
+
+  const providerColor = providerDef?.color || colors.accent.cyan;
+  const providerName = providerDef?.name || provider;
+
+  // Auto-scroll to bottom on new messages
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [messages, isStreaming]);
+
+  const apiKeyGetter = useCallback(async (keyName) => {
+    try {
+      return await window.flowcode?.env?.get(keyName) || null;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const sendMessage = useCallback(async (text) => {
+    if (!text.trim() || isStreaming) return;
+
+    const userMsg = { role: 'user', content: text.trim() };
+    setMessages((prev) => [...prev, userMsg]);
+    setIsStreaming(true);
+
+    // Build conversation history for the API
+    const history = [...messages, userMsg].map((m) => ({
+      role: m.role === 'error' ? 'assistant' : m.role,
+      content: m.content,
+    }));
+
+    let assistantContent = '';
+    try {
+      const stream = streamChat(provider, history, apiKeyGetter);
+      for await (const chunk of stream) {
+        if (chunk.type === 'text') {
+          assistantContent += chunk.content;
+          // Update in-progress message
+          setMessages((prev) => {
+            const last = prev[prev.length - 1];
+            if (last?.role === 'assistant' && last?._streaming) {
+              return [...prev.slice(0, -1), { role: 'assistant', content: assistantContent, providerName, _streaming: true }];
+            }
+            return [...prev, { role: 'assistant', content: assistantContent, providerName, _streaming: true }];
+          });
+        } else if (chunk.type === 'error') {
+          setMessages((prev) => [...prev, { role: 'error', content: chunk.content }]);
+        } else if (chunk.type === 'usage') {
+          window.flowcode?.cost?.track({
+            input: chunk.input, output: chunk.output,
+            model: chunk.model, terminalId: id,
+          });
+        }
+      }
+      // Finalize — remove _streaming flag
+      setMessages((prev) => {
+        const last = prev[prev.length - 1];
+        if (last?._streaming) {
+          return [...prev.slice(0, -1), { ...last, _streaming: false }];
+        }
+        return prev;
+      });
+    } catch (err) {
+      setMessages((prev) => [...prev, { role: 'error', content: `Stream failed: ${err.message}` }]);
+    } finally {
+      setIsStreaming(false);
+    }
+  }, [messages, isStreaming, provider, providerName, apiKeyGetter]);
+
+  // Expose sendMessage so the parent input bar can call it
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.detail?.terminalId === id && e.detail?.text) {
+        sendMessage(e.detail.text);
+      }
+    };
+    window.addEventListener('flowcode:apiChatSend', handler);
+    return () => window.removeEventListener('flowcode:apiChatSend', handler);
+  }, [id, sendMessage]);
+
+  // Also expose for the TerminalPane's own send button via a ref-like pattern
+  // We store sendMessage on the window keyed by terminal id
+  useEffect(() => {
+    window.__flowcodeApiChat = window.__flowcodeApiChat || {};
+    window.__flowcodeApiChat[id] = sendMessage;
+    return () => { delete window.__flowcodeApiChat?.[id]; };
+  }, [id, sendMessage]);
+
+  return (
+    <div style={{
+      flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0,
+    }}>
+      {/* Scrollable message list */}
+      <div ref={scrollRef} style={{
+        flex: 1, overflowY: 'auto', overflowX: 'hidden',
+        padding: '8px 0',
+        scrollbarWidth: 'thin',
+        scrollbarColor: `${colors.border.subtle} transparent`,
+      }}>
+        {messages.length === 0 && (
+          <div style={{
+            display: 'flex', flexDirection: 'column', alignItems: 'center',
+            justifyContent: 'center', height: '100%', gap: 8, padding: 24,
+          }}>
+            <span style={{
+              fontSize: 28, lineHeight: 1,
+            }}>
+              {provider === 'chatgpt' ? '\u{1F916}' : '\u{1F9BE}'}
+            </span>
+            <span style={{
+              fontSize: 13, fontWeight: 600, color: providerColor, fontFamily: fc,
+            }}>
+              {providerName}
+            </span>
+            <span style={{
+              fontSize: 11, color: colors.text.dim, fontFamily: fc, textAlign: 'center',
+            }}>
+              Type a message below to start chatting.
+            </span>
+          </div>
+        )}
+        {messages.map((msg, i) => (
+          <ChatMessage key={i} msg={msg} providerColor={providerColor} />
+        ))}
+        {isStreaming && !messages[messages.length - 1]?._streaming && (
+          <TypingIndicator color={providerColor} />
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ===========================================================================
+// Main TerminalPane component
+// ===========================================================================
+
 export default function TerminalPane({
-  id, label, provider = 'claude', cwd,
-  onClose, onRename,
+  id, label, provider = 'claude', cwd, fontSize = 13,
+  isFocused, onClose, onRename, onCwdChange,
   isDangerous, onToggleDanger,
   isDragging, isDropTarget,
   onDragStart, onDragEnd, onDragOver, onDrop,
 }) {
+  const { colors, terminalTheme } = useTheme();
   const termRef = useRef(null);
   const xtermRef = useRef(null);
   const fitRef = useRef(null);
   const outputBufRef = useRef('');
   const optionScanRef = useRef(null);
   const isDangerousRef = useRef(isDangerous);
+  const inputRef = useRef(null);
   const [status, setStatus] = useState('connecting');
   const [termOptions, setTermOptions] = useState(null);
   const [ctxPercent, setCtxPercent] = useState(null);
   const [isRenaming, setIsRenaming] = useState(false);
   const [renameVal, setRenameVal] = useState(label);
+  const [inputVal, setInputVal] = useState('');
+  const [mode, setMode] = useState('usage');
+  const [currentCwd, setCurrentCwd] = useState(cwd || null);
+  const [previewUrl, setPreviewUrl] = useState(null);
+  const [showPreview, setShowPreview] = useState(false);
   const ctxAlertedRef = useRef(0);
   const unsubDataRef = useRef(null);
   const unsubExitRef = useRef(null);
   const { addToast } = useContext(ToastContext);
+
+  // Determine if this is an API-based provider
+  const providerDef = useMemo(() => PROVIDERS.find((p) => p.id === provider), [provider]);
+  const isApiProvider = !!providerDef?.apiProvider;
 
   useEffect(() => { isDangerousRef.current = isDangerous; }, [isDangerous]);
 
@@ -77,15 +356,65 @@ export default function TerminalPane({
     window.flowcode?.terminal.write(id, text);
   }, [id]);
 
-  const { listening, status: voiceStatus, toggle: toggleVoice } = useVoiceInput(sendToTerminal);
+  const handleInputSend = useCallback(() => {
+    const text = inputVal.trim();
+    if (!text) return;
 
+    if (isApiProvider) {
+      // Dispatch to the ApiChatView
+      const sendFn = window.__flowcodeApiChat?.[id];
+      if (sendFn) sendFn(text);
+    } else {
+      sendToTerminal(text + '\r');
+    }
+    setInputVal('');
+    inputRef.current?.focus();
+  }, [inputVal, sendToTerminal, isApiProvider, id]);
+
+  const pickFolder = useCallback(async () => {
+    const folder = await window.flowcode?.dialog.pickFolder(currentCwd);
+    if (folder) {
+      setCurrentCwd(folder);
+      onCwdChange?.(folder);
+      if (!isApiProvider) {
+        sendToTerminal(`cd "${folder}"\r`);
+      }
+    }
+  }, [currentCwd, onCwdChange, sendToTerminal, isApiProvider]);
+
+  // Listen for snippet insertion from PromptTemplates
   useEffect(() => {
+    const handler = (e) => {
+      if (e.detail?.terminalId === id) {
+        setInputVal((prev) => prev ? prev + '\n' + e.detail.text : e.detail.text);
+        inputRef.current?.focus();
+      }
+    };
+    window.addEventListener('flowcode:insertToTerminal', handler);
+    return () => window.removeEventListener('flowcode:insertToTerminal', handler);
+  }, [id]);
+
+  const { listening, interim, lastSent, status: voiceStatus, toggle: toggleVoice } = useVoiceInput(
+    isApiProvider
+      ? (text) => {
+          // For API providers, voice input goes into the input field
+          setInputVal((prev) => prev ? prev + ' ' + text : text);
+        }
+      : sendToTerminal
+  );
+
+  // ----- Terminal (PTY) setup — only for non-API providers -----
+  useEffect(() => {
+    if (isApiProvider) {
+      setStatus('connected');
+      return;
+    }
     if (!termRef.current) return;
 
     const term = new Terminal({
-      theme: TERMINAL_THEME,
+      theme: terminalTheme,
       fontFamily: FONTS.mono,
-      fontSize: 13,
+      fontSize,
       cursorBlink: true,
       cursorStyle: 'bar',
       allowProposedApi: true,
@@ -99,8 +428,11 @@ export default function TerminalPane({
     fitRef.current = fit;
 
     term.attachCustomKeyEventHandler((event) => {
-      if ((event.ctrlKey || event.metaKey) && event.key === 'v') return false;
-      if ((event.ctrlKey || event.metaKey) && event.key === 'c' && term.hasSelection()) return false;
+      const mod = event.ctrlKey || event.metaKey;
+      if (mod && event.key === 'v') return false;
+      if (mod && event.key === 'c' && term.hasSelection()) return false;
+      if (mod && ['t', 'w', '1', '2', '3', '4', ',', 'Tab'].includes(event.key)) return false;
+      if (mod && event.shiftKey && event.key === 'D') return false;
       return true;
     });
 
@@ -141,6 +473,22 @@ export default function TerminalPane({
             }
           }
 
+          // Token usage tracking
+          const tokenUsage = parseTokenUsage(data);
+          if (tokenUsage) {
+            window.flowcode?.cost?.track({
+              input: tokenUsage.input, output: tokenUsage.output,
+              model: provider === 'claude' ? 'claude-sonnet-4-6' : provider,
+              terminalId: id,
+            });
+          }
+
+          // Dev server URL detection
+          const detectedUrl = detectDevServerUrl(outputBufRef.current);
+          if (detectedUrl) {
+            setPreviewUrl((prev) => prev !== detectedUrl ? detectedUrl : prev);
+          }
+
           if (optionScanRef.current) clearTimeout(optionScanRef.current);
           optionScanRef.current = setTimeout(() => {
             const options = parseTerminalOptions(outputBufRef.current);
@@ -165,9 +513,9 @@ export default function TerminalPane({
 
         setStatus('connected');
 
-        // Auto-launch claude CLI if provider is claude
-        if (provider === 'claude') {
-          setTimeout(() => window.flowcode.terminal.write(id, 'claude\r'), 500);
+        const provDef = PROVIDERS.find((p) => p.id === provider);
+        if (provDef?.command) {
+          setTimeout(() => window.flowcode.terminal.write(id, provDef.command + '\r'), 500);
         }
       } catch (err) {
         term.writeln(`\r\n\x1b[31mFailed to spawn terminal: ${err.message}\x1b[0m`);
@@ -195,25 +543,49 @@ export default function TerminalPane({
       unsubExitRef.current?.();
       term.dispose();
     };
-  }, [id]);
+  }, [id, isApiProvider]);
 
-  const statusColor = status === 'connected' ? COLORS.status.success
-    : status === 'connecting' ? COLORS.status.warning : COLORS.status.error;
+  useEffect(() => {
+    if (xtermRef.current) {
+      xtermRef.current.options.theme = terminalTheme;
+    }
+  }, [terminalTheme]);
 
-  const borderColor = isDropTarget ? COLORS.border.focus
-    : isDangerous ? COLORS.border.danger
-    : status === 'connected' ? COLORS.border.active : COLORS.border.subtle;
+  const statusColor = status === 'connected' ? colors.status.success
+    : status === 'connecting' ? colors.status.warning : colors.status.error;
+
+  const focusBorder = isFocused ? colors.border.focus : null;
+  const borderColor = isDropTarget ? colors.border.focus
+    : isDangerous ? colors.border.danger
+    : focusBorder
+    || (status === 'connected' ? colors.border.active : colors.border.subtle);
+
+  const boxShadow = isDangerous
+    ? '0 0 30px rgba(231,76,60,.08), 0 4px 16px rgba(0,0,0,.3)'
+    : isFocused
+    ? '0 0 20px rgba(129,140,248,.1), 0 4px 16px rgba(0,0,0,.3)'
+    : status === 'connected'
+    ? '0 0 30px rgba(52,211,153,.08), 0 4px 16px rgba(0,0,0,.3)'
+    : '0 4px 16px rgba(0,0,0,.3)';
+
+  const cwdShort = currentCwd ? currentCwd.split(/[/\\]/).slice(-2).join('/') : null;
+
+  // Use provider color for the header label on API providers
+  const headerLabelColor = isApiProvider
+    ? (isDangerous ? colors.status.error : providerDef?.color || colors.accent.green)
+    : (isDangerous ? colors.status.error : colors.accent.green);
 
   return (
     <div
       onDragOver={(e) => { e.preventDefault(); onDragOver?.(); }}
       onDrop={(e) => { e.preventDefault(); onDrop?.(); }}
       style={{
-        background: COLORS.bg.raised, border: `2px solid ${borderColor}`,
+        background: colors.bg.raised, border: `2px solid ${borderColor}`,
         borderRadius: 14, display: 'flex', flexDirection: 'column',
-        overflow: 'hidden', minHeight: 0,
+        overflow: 'hidden', minHeight: 0, flex: 1,
         opacity: isDragging ? 0.4 : 1,
-        transition: 'border-color .2s ease, opacity .2s ease',
+        boxShadow,
+        transition: 'border-color .3s ease, opacity .2s ease, box-shadow .3s ease',
       }}
     >
       {/* Header */}
@@ -222,15 +594,15 @@ export default function TerminalPane({
         onDragStart={(e) => { e.dataTransfer.effectAllowed = 'move'; onDragStart?.(); }}
         onDragEnd={onDragEnd}
         style={{
-          display: 'flex', alignItems: 'center', gap: 8, padding: '10px 16px',
-          background: isDangerous ? '#3a1520' : COLORS.bg.overlay,
+          display: 'flex', alignItems: 'center', gap: 6, padding: '8px 12px',
+          background: isDangerous ? '#3a1520' : colors.bg.overlay,
           borderBottom: `1px solid ${borderColor}`,
-          cursor: 'grab', flexShrink: 0,
+          cursor: 'grab', flexShrink: 0, flexWrap: 'wrap',
         }}
       >
         <span style={{
-          width: 8, height: 8, borderRadius: '50%', background: isDangerous ? COLORS.status.error : statusColor,
-          animation: isDangerous || status === 'connecting' ? 'pulse 1.5s infinite' : 'none',
+          width: 8, height: 8, borderRadius: '50%', background: isDangerous ? colors.status.error : statusColor,
+          animation: isDangerous || status === 'connecting' ? 'pulse 1.5s infinite' : 'none', flexShrink: 0,
         }} />
 
         {isRenaming ? (
@@ -244,65 +616,128 @@ export default function TerminalPane({
               if (e.key === 'Escape') setIsRenaming(false);
             }}
             style={{
-              flex: 1, background: 'transparent', border: `1px solid ${COLORS.border.focus}`,
-              borderRadius: 4, padding: '2px 6px', color: COLORS.accent.green,
-              fontSize: 13, fontWeight: 600, fontFamily: fc, outline: 'none',
+              flex: 1, minWidth: 80, background: 'transparent', border: `1px solid ${colors.border.focus}`,
+              borderRadius: 4, padding: '2px 6px', color: headerLabelColor,
+              fontSize: 12, fontWeight: 600, fontFamily: fc, outline: 'none',
             }}
           />
         ) : (
           <span
             onDoubleClick={() => { setRenameVal(label); setIsRenaming(true); }}
-            style={{ fontSize: 13, fontWeight: 600, color: isDangerous ? COLORS.status.error : COLORS.accent.green, fontFamily: fc, flex: 1 }}
+            style={{ fontSize: 12, fontWeight: 600, color: headerLabelColor, fontFamily: fc, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
           >
-            flowcode://{label}
+            {label}
           </span>
         )}
 
-        <span style={{
-          fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 5, fontFamily: fc,
-          background: `linear-gradient(135deg,${COLORS.accent.green},${COLORS.accent.cyan})`, color: '#fff',
-        }}>{provider.toUpperCase()}</span>
+        {/* Provider badge for API providers */}
+        {isApiProvider && (
+          <span style={{
+            fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 4, fontFamily: fc,
+            background: `${providerDef.color}18`,
+            color: providerDef.color,
+            border: `1px solid ${providerDef.color}30`,
+            letterSpacing: 0.5,
+            textTransform: 'uppercase',
+          }}>
+            {providerDef.name}
+          </span>
+        )}
+
+        {/* Folder picker */}
+        <button onClick={pickFolder} style={{
+          all: 'unset', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4,
+          padding: '2px 6px', borderRadius: 4, fontSize: 10, fontFamily: fc, color: colors.text.ghost,
+          border: `1px solid transparent`, transition: 'all .15s',
+        }}
+        onMouseEnter={(e) => { e.currentTarget.style.borderColor = colors.border.subtle; e.currentTarget.style.color = colors.text.dim; }}
+        onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.color = colors.text.ghost; }}
+        title={currentCwd || 'Set working directory'}>
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z" />
+          </svg>
+          {cwdShort && <span>{cwdShort}</span>}
+        </button>
+
+        <div style={{ flex: 1 }} />
+
+        {/* Mode badge — only for terminal providers */}
+        {!isApiProvider && (
+          <button
+            onClick={() => setMode((m) => m === 'usage' ? 'tokens' : 'usage')}
+            style={{
+              all: 'unset', cursor: 'pointer', fontSize: 9, fontWeight: 700,
+              padding: '2px 6px', borderRadius: 4, fontFamily: fc,
+              background: mode === 'usage' ? '#6c8aff18' : '#f0a05018',
+              color: mode === 'usage' ? '#6c8aff' : '#f0a050',
+              border: `1px solid ${mode === 'usage' ? '#6c8aff30' : '#f0a05030'}`,
+            }}
+          >{mode === 'usage' ? '⚡ USAGE' : '\u{1F511} TOKENS'}</button>
+        )}
 
         {ctxPercent != null && (
           <span style={{
-            fontSize: 10, fontWeight: 600, padding: '3px 8px', borderRadius: 5, fontFamily: fc,
-            background: ctxPercent >= 90 ? '#E74C3C18' : ctxPercent >= 70 ? '#F39C1218' : COLORS.bg.surface,
-            color: ctxPercent >= 90 ? COLORS.status.error : ctxPercent >= 70 ? COLORS.status.warning : COLORS.text.dim,
-            border: `1px solid ${ctxPercent >= 70 ? (ctxPercent >= 90 ? '#E74C3C30' : '#F39C1230') : COLORS.border.subtle}`,
+            fontSize: 9, fontWeight: 600, padding: '2px 6px', borderRadius: 4, fontFamily: fc,
+            background: ctxPercent >= 90 ? '#E74C3C18' : ctxPercent >= 70 ? '#F39C1218' : colors.bg.surface,
+            color: ctxPercent >= 90 ? colors.status.error : ctxPercent >= 70 ? colors.status.warning : colors.text.dim,
+            border: `1px solid ${ctxPercent >= 70 ? (ctxPercent >= 90 ? '#E74C3C30' : '#F39C1230') : colors.border.subtle}`,
           }}>{ctxPercent}% ctx</span>
+        )}
+
+        {/* Preview toggle — shown when a dev server URL is detected */}
+        {!isApiProvider && previewUrl && (
+          <button
+            onClick={() => setShowPreview((v) => !v)}
+            title={showPreview ? 'Hide preview' : `Preview ${previewUrl}`}
+            style={{
+              all: 'unset', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4,
+              padding: '2px 6px', borderRadius: 4, fontFamily: fc, fontSize: 9, fontWeight: 700,
+              background: showPreview ? `${colors.accent.cyan}18` : colors.bg.surface,
+              color: showPreview ? colors.accent.cyan : colors.text.dim,
+              border: `1px solid ${showPreview ? `${colors.accent.cyan}30` : colors.border.subtle}`,
+              transition: 'all .15s',
+            }}
+          >
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
+              <line x1="8" y1="21" x2="16" y2="21" />
+              <line x1="12" y1="17" x2="12" y2="21" />
+            </svg>
+            {showPreview ? 'PREVIEW' : 'PREVIEW'}
+          </button>
         )}
 
         {/* Danger toggle */}
         <button onClick={onToggleDanger} style={{
-          all: 'unset', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5,
-          padding: '3px 8px', borderRadius: 5, fontFamily: fc, fontSize: 10, fontWeight: 700,
-          background: isDangerous ? '#E74C3C18' : COLORS.bg.surface,
-          color: isDangerous ? COLORS.status.error : COLORS.text.dim,
-          border: `1px solid ${isDangerous ? '#E74C3C30' : COLORS.border.subtle}`,
+          all: 'unset', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4,
+          padding: '2px 6px', borderRadius: 4, fontFamily: fc, fontSize: 9, fontWeight: 700,
+          background: isDangerous ? '#E74C3C18' : colors.bg.surface,
+          color: isDangerous ? colors.status.error : colors.text.dim,
+          border: `1px solid ${isDangerous ? '#E74C3C30' : colors.border.subtle}`,
         }}>
           <div style={{
-            width: 28, height: 14, borderRadius: 7, position: 'relative',
-            background: isDangerous ? COLORS.status.error : COLORS.border.subtle,
+            width: 24, height: 12, borderRadius: 6, position: 'relative',
+            background: isDangerous ? colors.status.error : colors.border.subtle,
             transition: 'background .25s ease',
           }}>
             <div style={{
-              width: 10, height: 10, borderRadius: '50%', position: 'absolute', top: 2,
-              left: isDangerous ? 16 : 2,
-              background: isDangerous ? '#fff' : COLORS.text.dim,
+              width: 8, height: 8, borderRadius: '50%', position: 'absolute', top: 2,
+              left: isDangerous ? 14 : 2,
+              background: isDangerous ? '#fff' : colors.text.dim,
               transition: 'left .25s ease',
             }} />
           </div>
-          {isDangerous && <span style={{ color: COLORS.status.error }}>DANGER</span>}
+          {isDangerous && <span style={{ color: colors.status.error }}>DANGER</span>}
         </button>
 
         {/* Voice toggle */}
         <button onClick={toggleVoice} style={{
           all: 'unset', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-          width: 26, height: 26, borderRadius: 6,
-          background: listening ? '#E74C3C20' : COLORS.bg.surface,
-          border: `1px solid ${listening ? COLORS.status.error : COLORS.border.subtle}`,
+          width: 24, height: 24, borderRadius: 5,
+          background: listening ? '#E74C3C20' : colors.bg.surface,
+          border: `1px solid ${listening ? colors.status.error : colors.border.subtle}`,
         }} title={listening ? 'Stop voice' : 'Start voice'}>
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={listening ? COLORS.status.error : COLORS.text.dim} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke={listening ? colors.status.error : colors.text.dim} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <rect x="9" y="1" width="6" height="11" rx="3" />
             <path d="M19 10v1a7 7 0 0 1-14 0v-1" />
             <line x1="12" y1="19" x2="12" y2="23" />
@@ -310,9 +745,32 @@ export default function TerminalPane({
           </svg>
         </button>
 
+        {/* Pop out button — Electron only */}
+        {window.flowcode?.window?.popout && (
+          <button
+            onClick={() => window.flowcode.window.popout(id)}
+            style={{
+              all: 'unset', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              width: 24, height: 24, borderRadius: 5,
+              background: colors.bg.surface,
+              border: `1px solid ${colors.border.subtle}`,
+              transition: 'all 0.15s',
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.borderColor = colors.accent.cyan; e.currentTarget.style.background = colors.accent.cyan + '15'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.borderColor = colors.border.subtle; e.currentTarget.style.background = colors.bg.surface; }}
+            title="Pop out to separate window"
+          >
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke={colors.text.dim} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="15 3 21 3 21 9" />
+              <line x1="10" y1="14" x2="21" y2="3" />
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+            </svg>
+          </button>
+        )}
+
         <button onClick={onClose} style={{
-          all: 'unset', cursor: 'pointer', fontSize: 12, color: COLORS.text.dim, fontFamily: fc, padding: '0 4px',
-        }} title="Kill terminal">✕</button>
+          all: 'unset', cursor: 'pointer', fontSize: 11, color: colors.text.dim, fontFamily: fc, padding: '0 3px',
+        }} title="Kill terminal">{'✕'}</button>
       </div>
 
       <ContextBar percent={ctxPercent} />
@@ -320,26 +778,52 @@ export default function TerminalPane({
       {/* Voice status bar */}
       {listening && (
         <div style={{
-          padding: '4px 12px', background: COLORS.bg.overlay, borderBottom: `1px solid ${COLORS.border.subtle}`,
+          padding: '4px 12px', background: colors.bg.overlay, borderBottom: `1px solid ${colors.border.subtle}`,
           display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0,
         }}>
-          <span style={{ width: 5, height: 5, borderRadius: '50%', background: COLORS.status.error, animation: 'pulse 1.5s infinite' }} />
-          <span style={{ fontSize: 11, color: COLORS.text.dim, fontFamily: fc, fontStyle: 'italic' }}>
+          <span style={{ width: 5, height: 5, borderRadius: '50%', background: colors.status.error, animation: 'pulse 1.5s infinite' }} />
+          <span style={{ fontSize: 11, color: colors.text.dim, fontFamily: fc, fontStyle: 'italic' }}>
             {voiceStatus || 'Listening...'}
           </span>
+          {interim && <span style={{ fontSize: 11, color: colors.accent.purple, fontFamily: fc, marginLeft: 8 }}>"{interim}"</span>}
+          {lastSent && !interim && <span style={{ fontSize: 11, color: colors.text.ghost, fontFamily: fc, marginLeft: 8 }}>Sent: "{lastSent}"</span>}
         </div>
       )}
 
-      {/* Terminal */}
-      <div ref={termRef} style={{ flex: 1, padding: '4px 8px', minHeight: 0, overflow: 'hidden' }} />
+      {/* Body: either xterm terminal or API chat view, with optional preview */}
+      {isApiProvider ? (
+        <ApiChatView
+          id={id}
+          provider={provider}
+          providerDef={providerDef}
+          inputVal={inputVal}
+          setInputVal={setInputVal}
+          inputRef={inputRef}
+        />
+      ) : (
+        <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
+          <div ref={termRef} style={{ flex: 1, padding: '4px 8px', minHeight: 0, overflow: 'hidden' }} />
+          {showPreview && previewUrl && (
+            <PreviewPane
+              url={previewUrl}
+              onClose={() => setShowPreview(false)}
+              onPopout={(popUrl) => {
+                window.dispatchEvent(new CustomEvent('flowcode:previewPopout', {
+                  detail: { url: popUrl, terminalId: id },
+                }));
+              }}
+            />
+          )}
+        </div>
+      )}
 
-      {/* Quick-action buttons */}
-      {termOptions && (
+      {/* Quick-action buttons — only for terminal providers when options exist */}
+      {!isApiProvider && termOptions && termOptions.length > 0 && (
         <div style={{
-          padding: '6px 12px', background: COLORS.bg.overlay, borderTop: `1px solid ${COLORS.border.subtle}`,
+          padding: '6px 12px', background: colors.bg.overlay, borderTop: `1px solid ${colors.border.subtle}`,
           display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center', flexShrink: 0,
         }}>
-          <span style={{ fontSize: 10, color: COLORS.text.dim, fontFamily: fc }}>Quick:</span>
+          <span style={{ fontSize: 10, color: colors.text.dim, fontFamily: fc }}>Quick:</span>
           {termOptions.map((opt, i) => (
             <button key={i} onClick={() => {
               sendToTerminal(/^\d+$/.test(opt.value) ? opt.value + '\r' : opt.value);
@@ -348,15 +832,54 @@ export default function TerminalPane({
             }} style={{
               all: 'unset', cursor: 'pointer', fontSize: 11, fontWeight: 600,
               padding: '4px 12px', borderRadius: 6, fontFamily: fc,
-              background: COLORS.bg.surface, color: COLORS.accent.green, border: `1px solid ${COLORS.border.subtle}`,
+              background: colors.bg.surface, color: colors.accent.green, border: `1px solid ${colors.border.subtle}`,
               transition: 'all .15s ease',
             }}
-            onMouseEnter={(e) => { e.target.style.borderColor = COLORS.accent.green; }}
-            onMouseLeave={(e) => { e.target.style.borderColor = COLORS.border.subtle; }}
+            onMouseEnter={(e) => { e.target.style.borderColor = colors.accent.green; }}
+            onMouseLeave={(e) => { e.target.style.borderColor = colors.border.subtle; }}
             >{opt.label}</button>
           ))}
         </div>
       )}
+
+      {/* Input bar with send button */}
+      <div style={{
+        display: 'flex', gap: 8, padding: '8px 12px', alignItems: 'center',
+        borderTop: `1px solid ${colors.border.subtle}`, background: colors.bg.overlay,
+        flexShrink: 0,
+      }}>
+        <input
+          ref={inputRef}
+          value={inputVal}
+          onChange={(e) => setInputVal(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              handleInputSend();
+            }
+          }}
+          placeholder={isApiProvider ? `message ${providerDef?.name || 'AI'}...` : 'type a command or message...'}
+          style={{
+            flex: 1, background: 'transparent', border: 'none', outline: 'none',
+            color: colors.text.primary, fontSize: 12, fontFamily: fc, padding: '4px 0',
+          }}
+        />
+        <button
+          onClick={handleInputSend}
+          style={{
+            all: 'unset', cursor: 'pointer', fontSize: 10, fontWeight: 700,
+            padding: '5px 14px', borderRadius: 6, fontFamily: fc, color: '#fff',
+            background: isApiProvider
+              ? `linear-gradient(135deg, ${providerDef?.color || '#34d399'}, ${colors.accent.purple})`
+              : `linear-gradient(135deg, ${colors.accent.green}, ${colors.accent.purple})`,
+            boxShadow: `0 2px 8px ${(isApiProvider ? providerDef?.color : colors.accent.green) || colors.accent.green}30`,
+            transition: 'all .2s ease',
+            opacity: inputVal.trim() ? 1 : 0.5,
+          }}
+          onMouseEnter={(e) => { e.target.style.transform = 'translateY(-1px)'; e.target.style.boxShadow = `0 4px 12px ${(isApiProvider ? providerDef?.color : colors.accent.green) || colors.accent.green}40`; }}
+          onMouseLeave={(e) => { e.target.style.transform = 'none'; e.target.style.boxShadow = `0 2px 8px ${(isApiProvider ? providerDef?.color : colors.accent.green) || colors.accent.green}30`; }}
+        >SEND</button>
+      </div>
     </div>
   );
 }

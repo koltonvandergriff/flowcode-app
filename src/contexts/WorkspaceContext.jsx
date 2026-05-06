@@ -5,6 +5,17 @@ export const WorkspaceContext = createContext(null);
 
 const api = typeof window !== 'undefined' && window.flowcode?.workspace;
 
+function makeDefaultWorkspace(name = 'Default') {
+  return {
+    id: `ws-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    name,
+    createdAt: Date.now(),
+    terminals: [],
+    layout: '2x1',
+    macros: [],
+  };
+}
+
 export function WorkspaceProvider({ children }) {
   const [workspaces, setWorkspaces] = useState([]);
   const [activeId, setActiveId] = useState(null);
@@ -18,7 +29,13 @@ export function WorkspaceProvider({ children }) {
   }, []);
 
   useEffect(() => {
-    if (!api) return;
+    if (!api) {
+      const ws = makeDefaultWorkspace();
+      setActiveId(ws.id);
+      setActiveData(ws);
+      setWorkspaces([{ id: ws.id, name: ws.name, createdAt: ws.createdAt, terminalCount: 0 }]);
+      return;
+    }
     (async () => {
       await refresh();
       const savedId = await api.getActive();

@@ -1,0 +1,163 @@
+const { contextBridge, ipcRenderer } = require('electron');
+
+contextBridge.exposeInMainWorld('flowcode', {
+  terminal: {
+    spawn: (opts) => ipcRenderer.invoke('terminal:spawn', opts),
+    write: (id, data) => ipcRenderer.send('terminal:write', { id, data }),
+    resize: (id, cols, rows) => ipcRenderer.send('terminal:resize', { id, cols, rows }),
+    kill: (id) => ipcRenderer.send('terminal:kill', { id }),
+    list: () => ipcRenderer.invoke('terminal:list'),
+    onData: (callback) => {
+      const handler = (_, payload) => callback(payload.id, payload.data);
+      ipcRenderer.on('terminal:data', handler);
+      return () => ipcRenderer.removeListener('terminal:data', handler);
+    },
+    onExit: (callback) => {
+      const handler = (_, payload) => callback(payload.id, payload.exitCode);
+      ipcRenderer.on('terminal:exit', handler);
+      return () => ipcRenderer.removeListener('terminal:exit', handler);
+    },
+  },
+
+  workspace: {
+    list: () => ipcRenderer.invoke('workspace:list'),
+    create: (name) => ipcRenderer.invoke('workspace:create', name),
+    load: (id) => ipcRenderer.invoke('workspace:load', id),
+    save: (id, data) => ipcRenderer.invoke('workspace:save', { id, data }),
+    delete: (id) => ipcRenderer.invoke('workspace:delete', id),
+    setActive: (id) => ipcRenderer.invoke('workspace:setActive', id),
+    getActive: () => ipcRenderer.invoke('workspace:getActive'),
+  },
+
+  session: {
+    save: (state) => ipcRenderer.invoke('session:save', state),
+    load: () => ipcRenderer.invoke('session:load'),
+  },
+
+  cost: {
+    getUsage: () => ipcRenderer.invoke('cost:getUsage'),
+    track: (data) => ipcRenderer.send('cost:track', data),
+    getHistory: (range) => ipcRenderer.invoke('cost:getHistory', range),
+    getRawHistory: (range) => ipcRenderer.invoke('cost:getRawHistory', range),
+    onUpdated: (callback) => {
+      const handler = () => callback();
+      ipcRenderer.on('usage:updated', handler);
+      return () => ipcRenderer.removeListener('usage:updated', handler);
+    },
+  },
+
+  usage: {
+    getStats: () => ipcRenderer.invoke('usage:getStats'),
+    getRetention: () => ipcRenderer.invoke('usage:getRetention'),
+    setRetention: (days) => ipcRenderer.invoke('usage:setRetention', days),
+    prune: () => ipcRenderer.invoke('usage:prune'),
+    pruneCursors: () => ipcRenderer.invoke('usage:pruneCursors'),
+    getBillingResetDay: () => ipcRenderer.invoke('usage:getBillingResetDay'),
+    setBillingResetDay: (day) => ipcRenderer.invoke('usage:setBillingResetDay', day),
+  },
+
+  settings: {
+    getAll: () => ipcRenderer.invoke('settings:getAll'),
+    get: (key) => ipcRenderer.invoke('settings:get', key),
+    set: (key, value) => ipcRenderer.invoke('settings:set', { key, value }),
+  },
+
+  env: {
+    getAll: () => ipcRenderer.invoke('env:getAll'),
+    get: (key) => ipcRenderer.invoke('env:get', key),
+    set: (key, value) => ipcRenderer.invoke('env:set', { key, value }),
+    setMany: (pairs) => ipcRenderer.invoke('env:setMany', pairs),
+    has: (key) => ipcRenderer.invoke('env:has', key),
+  },
+
+  history: {
+    save: (session) => ipcRenderer.invoke('history:save', session),
+    list: () => ipcRenderer.invoke('history:list'),
+    load: (id) => ipcRenderer.invoke('history:load', id),
+    delete: (id) => ipcRenderer.invoke('history:delete', id),
+    export: (id, format) => ipcRenderer.invoke('history:export', { id, format }),
+  },
+
+  crash: {
+    getLogs: (count) => ipcRenderer.invoke('crash:getLogs', count),
+    report: (description) => ipcRenderer.invoke('crash:report', description),
+    log: (level, message, meta) => ipcRenderer.invoke('crash:log', { level, message, meta }),
+  },
+
+  plugins: {
+    list: () => ipcRenderer.invoke('plugins:list'),
+    load: (name) => ipcRenderer.invoke('plugins:load', name),
+    manifest: (name) => ipcRenderer.invoke('plugins:manifest', name),
+    enable: (name) => ipcRenderer.invoke('plugins:enable', name),
+    disable: (name) => ipcRenderer.invoke('plugins:disable', name),
+    getPath: () => ipcRenderer.invoke('plugins:getPath'),
+    openFolder: () => ipcRenderer.invoke('plugins:openFolder'),
+  },
+
+  dialog: {
+    pickFolder: (defaultPath) => ipcRenderer.invoke('dialog:pickFolder', defaultPath),
+  },
+
+  git: {
+    status: (cwd) => ipcRenderer.invoke('git:status', { cwd }),
+    diff: (cwd, file) => ipcRenderer.invoke('git:diff', { cwd, file }),
+    branch: (cwd) => ipcRenderer.invoke('git:branch', { cwd }),
+  },
+
+  update: {
+    check: () => ipcRenderer.invoke('update:check'),
+    install: () => ipcRenderer.invoke('update:install'),
+    onChecking: (callback) => {
+      const handler = (_, payload) => callback(payload);
+      ipcRenderer.on('update:checking', handler);
+      return () => ipcRenderer.removeListener('update:checking', handler);
+    },
+    onAvailable: (callback) => {
+      const handler = (_, payload) => callback(payload);
+      ipcRenderer.on('update:available', handler);
+      return () => ipcRenderer.removeListener('update:available', handler);
+    },
+    onNotAvailable: (callback) => {
+      const handler = (_, payload) => callback(payload);
+      ipcRenderer.on('update:not-available', handler);
+      return () => ipcRenderer.removeListener('update:not-available', handler);
+    },
+    onDownloaded: (callback) => {
+      const handler = (_, payload) => callback(payload);
+      ipcRenderer.on('update:downloaded', handler);
+      return () => ipcRenderer.removeListener('update:downloaded', handler);
+    },
+    onProgress: (callback) => {
+      const handler = (_, payload) => callback(payload);
+      ipcRenderer.on('update:progress', handler);
+      return () => ipcRenderer.removeListener('update:progress', handler);
+    },
+    onError: (callback) => {
+      const handler = (_, payload) => callback(payload);
+      ipcRenderer.on('update:error', handler);
+      return () => ipcRenderer.removeListener('update:error', handler);
+    },
+  },
+
+  app: {
+    onBeforeClose: (callback) => {
+      const handler = () => callback();
+      ipcRenderer.on('app:beforeClose', handler);
+      return () => ipcRenderer.removeListener('app:beforeClose', handler);
+    },
+  },
+
+  window: {
+    minimize: () => ipcRenderer.send('window:minimize'),
+    maximize: () => ipcRenderer.send('window:maximize'),
+    close: () => ipcRenderer.send('window:close'),
+    isMaximized: () => ipcRenderer.invoke('window:isMaximized'),
+    popout: (terminalId, bounds) => ipcRenderer.invoke('window:popout', { terminalId, bounds }),
+    closePopout: (windowId) => ipcRenderer.invoke('window:closePopout', windowId),
+    isPopout: () => new URLSearchParams(window.location.search).has('popout'),
+    getPopoutTerminalId: () => new URLSearchParams(window.location.search).get('terminalId'),
+  },
+
+  platform: process.platform,
+  version: '0.1.0',
+});

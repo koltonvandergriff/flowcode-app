@@ -16,10 +16,36 @@ function encodeWAV(float32, sampleRate) {
   return new Blob([buffer], { type: 'audio/wav' });
 }
 
+async function transcribeWAV(wavBlob) {
+  const apiKey = await window.flowcode?.env.get('OPENAI_API_KEY');
+  if (!apiKey) return { text: null, error: 'no_key' };
+
+  const formData = new FormData();
+  formData.append('file', wavBlob, 'audio.wav');
+  formData.append('model', 'whisper-1');
+  formData.append('response_format', 'json');
+
+  const res = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${apiKey}` },
+    body: formData,
+  });
+
+  if (!res.ok) {
+    if (res.status === 401) return { text: null, error: 'invalid_key' };
+    return { text: null, error: 'api_error' };
+  }
+
+  const data = await res.json();
+  const text = data.text?.trim();
+  return { text: text || null, error: null };
+}
+
 export function useVoiceInput(onTranscript) {
   const [listening, setListening] = useState(false);
   const [status, setStatus] = useState('');
   const [interim, setInterim] = useState('');
+  const [lastSent, setLastSent] = useState('');
   const wantActiveRef = useRef(false);
   const streamRef = useRef(null);
   const contextRef = useRef(null);
@@ -45,21 +71,32 @@ export function useVoiceInput(onTranscript) {
     setStatus('Transcribing...');
 
     try {
-      // Use Web Speech API as primary, with fallback support for external whisper
-      const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
-      recognition.continuous = false;
-      recognition.interimResults = false;
-
-      // For now, use the WAV approach if a whisper endpoint is configured
-      // This is extensible — providers can plug in their own STT
       const wav = encodeWAV(merged, 16000);
-      const text = await transcribeWAV(wav);
+      const { text, error } = await transcribeWAV(wav);
+
+      if (error === 'no_key') {
+        setStatus('No OpenAI key — add one in Settings > API Keys');
+        busyRef.current = false;
+        return;
+      }
+      if (error === 'invalid_key') {
+        setStatus('Invalid OpenAI key — check Settings > API Keys');
+        busyRef.current = false;
+        return;
+      }
+      if (error) {
+        setStatus('Transcription failed — try again');
+        busyRef.current = false;
+        return;
+      }
+
       if (text) {
-        onTranscriptRef.current(text);
+        onTranscriptRef.current(text + '\r');
+        setLastSent(text);
         setStatus('Sent');
         setTimeout(() => { if (wantActiveRef.current) setStatus('Listening...'); }, 1500);
       } else {
-        setStatus('Listening...');
+        setStatus(wantActiveRef.current ? 'Listening...' : '');
       }
     } catch {
       setStatus('Transcription failed');
@@ -129,11 +166,5 @@ export function useVoiceInput(onTranscript) {
 
   useEffect(() => () => { wantActiveRef.current = false; stop(); }, [stop]);
 
-  return { listening, interim, status, toggle };
-}
-
-async function transcribeWAV(_wavBlob) {
-  // Placeholder — plug in whisper endpoint, Deepgram, or other STT
-  // For v1, voice input captures audio and sends raw text via Web Speech API fallback
-  return null;
+  return { listening, interim, lastSent, status, toggle };
 }

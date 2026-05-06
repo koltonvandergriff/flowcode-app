@@ -1,17 +1,19 @@
 import { createContext, useCallback, useState } from 'react';
-import { FONTS, COLORS } from '../lib/constants';
+import { FONTS } from '../lib/constants';
+import { useTheme } from '../hooks/useTheme';
 
 export const ToastContext = createContext({ addToast: () => {} });
 
-const TYPE_COLORS = {
-  info: COLORS.accent.purple,
-  success: COLORS.accent.green,
-  warning: COLORS.status.warning,
-  error: COLORS.status.error,
-};
-
 export function ToastProvider({ children }) {
+  const { colors } = useTheme();
   const [toasts, setToasts] = useState([]);
+
+  const TYPE_COLORS = {
+    info: colors.accent.purple,
+    success: colors.accent.green,
+    warning: colors.status.warning,
+    error: colors.status.error,
+  };
 
   const addToast = useCallback((msg, type = 'info') => {
     const id = Date.now() + Math.random();
@@ -31,7 +33,7 @@ export function ToastProvider({ children }) {
           return (
             <div key={t.id} style={{
               padding: '10px 18px', borderRadius: 10, fontFamily: FONTS.mono, fontSize: 12,
-              background: COLORS.bg.raised, border: `1px solid ${color}40`,
+              background: colors.bg.raised, border: `1px solid ${color}40`,
               color, boxShadow: `0 4px 20px ${color}20`,
               animation: 'fadeSlideIn .3s ease',
             }}>{t.msg}</div>

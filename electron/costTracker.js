@@ -9,7 +9,8 @@ const COST_PER_MTK = {
 };
 
 export class CostTracker {
-  constructor() {
+  constructor(settingsStore) {
+    this.settingsStore = settingsStore;
     this.dataDir = join(app.getPath('userData'), 'flowcode-data');
     this.logFile = join(this.dataDir, 'cost_log.jsonl');
     this.sessionStart = Date.now();
@@ -40,13 +41,26 @@ export class CostTracker {
     } catch {}
   }
 
+  getBillingCycleStart() {
+    const resetDay = this.settingsStore?.get('billingResetDay') || 1;
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth();
+    const day = now.getDate();
+
+    if (day >= resetDay) {
+      return new Date(year, month, resetDay).getTime();
+    }
+    return new Date(year, month - 1, resetDay).getTime();
+  }
+
   getUsage() {
     const now = Date.now();
     const startOfDay = new Date().setHours(0, 0, 0, 0);
-    const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime();
+    const cycleStart = this.getBillingCycleStart();
 
     const daily = this.aggregate(startOfDay);
-    const monthly = this.aggregate(startOfMonth);
+    const monthly = this.aggregate(cycleStart);
 
     return {
       session: {
@@ -56,6 +70,7 @@ export class CostTracker {
       },
       daily,
       monthly,
+      billingCycleStart: new Date(cycleStart).toISOString(),
     };
   }
 
@@ -79,6 +94,29 @@ export class CostTracker {
       return { input, output, cost: +cost.toFixed(4), total: input + output, tasks };
     } catch {
       return { input: 0, output: 0, cost: 0, total: 0, tasks: 0 };
+    }
+  }
+
+  getRawHistory(range = 'month') {
+    try {
+      if (!existsSync(this.logFile)) return [];
+      const lines = readFileSync(this.logFile, 'utf8').split('\n').filter(Boolean);
+      const now = Date.now();
+      const rangeMs = range === 'day' ? 86400000 : range === 'week' ? 604800000 : 2592000000;
+      const cutoff = new Date(now - rangeMs);
+
+      const entries = [];
+      for (const line of lines) {
+        try {
+          const r = JSON.parse(line);
+          if (new Date(r.timestamp) >= cutoff) {
+            entries.push(r);
+          }
+        } catch {}
+      }
+      return entries.sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+    } catch {
+      return [];
     }
   }
 

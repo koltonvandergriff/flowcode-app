@@ -1,73 +1,27 @@
+import { DARK_COLORS, LIGHT_COLORS, DARK_TERMINAL_THEME, LIGHT_TERMINAL_THEME } from './themes';
+
 export const FONTS = {
   mono: "'JetBrains Mono', 'Cascadia Code', monospace",
   body: "'Outfit', sans-serif",
   display: "'Orbitron', sans-serif",
 };
 
-export const COLORS = {
-  bg: {
-    base: '#161729',
-    surface: '#1a1b32',
-    raised: '#1e1f36',
-    overlay: '#262842',
-  },
-  border: {
-    subtle: '#2e3050',
-    active: '#2a6a4a',
-    danger: '#E74C3C40',
-    focus: '#818cf8',
-  },
-  accent: {
-    green: '#34d399',
-    purple: '#818cf8',
-    amber: '#f59e0b',
-    cyan: '#2dd4bf',
-    pink: '#e879a8',
-  },
-  text: {
-    primary: '#e0e2f0',
-    secondary: '#c0c3d8',
-    muted: '#9899b3',
-    dim: '#6a6b85',
-    ghost: '#4a4e68',
-  },
-  status: {
-    success: '#2ECC71',
-    warning: '#F39C12',
-    error: '#E74C3C',
-    info: '#3B8BD4',
-    idle: '#6a6b85',
-  },
-};
+// Re-export both palettes for theme-aware components
+export { DARK_COLORS, LIGHT_COLORS, DARK_TERMINAL_THEME, LIGHT_TERMINAL_THEME };
 
-export const TERMINAL_THEME = {
-  background: COLORS.bg.surface,
-  foreground: '#d0d1e0',
-  cursor: COLORS.accent.green,
-  cursorAccent: COLORS.bg.surface,
-  selectionBackground: '#818cf830',
-  black: '#1a1b32',
-  red: '#E74C3C',
-  green: '#2ECC71',
-  yellow: '#F39C12',
-  blue: '#3B8BD4',
-  magenta: '#8E44AD',
-  cyan: '#1ABC9C',
-  white: '#c0c3d8',
-  brightBlack: '#2a2e48',
-  brightRed: '#E8593C',
-  brightGreen: '#2ECC71',
-  brightYellow: '#FFD700',
-  brightBlue: '#5DADE2',
-  brightMagenta: '#AF7AC5',
-  brightCyan: '#48C9B0',
-  brightWhite: '#e0e2f0',
-};
+// Default COLORS remains dark for backwards compatibility
+// Components not yet migrated to ThemeContext will continue using these
+export const COLORS = DARK_COLORS;
+
+export const TERMINAL_THEME = DARK_TERMINAL_THEME;
 
 export const PROVIDERS = [
   { id: 'claude', name: 'Claude CLI', command: 'claude', color: COLORS.accent.green },
+  { id: 'claude-api', name: 'Claude API', command: null, color: '#d4a27f', apiProvider: true },
   { id: 'shell', name: 'Shell', command: null, color: COLORS.accent.amber },
   { id: 'aider', name: 'Aider', command: 'aider', color: COLORS.accent.purple },
+  { id: 'chatgpt', name: 'ChatGPT', command: null, color: '#10a37f', apiProvider: true },
+  { id: 'openclaw', name: 'OpenClaw', command: null, color: '#ff6b35', apiProvider: true },
   { id: 'custom', name: 'Custom', command: null, color: COLORS.accent.cyan },
 ];
 
