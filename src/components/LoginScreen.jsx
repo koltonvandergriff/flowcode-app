@@ -68,10 +68,6 @@ export default function LoginScreen({ onAuthenticated }) {
           <div style={s.logoBox}>
             <img src={flowadeLogo} alt="FlowADE" style={s.logoImg} />
           </div>
-          <div style={s.brandText}>
-            <span style={s.appName}>FlowADE</span>
-          </div>
-          <div style={s.tagline}>WORKSPACE</div>
         </div>
 
         <div style={s.card}>
@@ -273,14 +269,11 @@ function buildStyles(c) {
     },
     logoSection: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 },
     logoBox: {
-      width: 64, height: 64, borderRadius: 14,
+      width: 100, height: 100, borderRadius: 20,
       overflow: 'hidden',
       boxShadow: `0 8px 32px ${c.accent.cyan}35, 0 2px 8px rgba(0,0,0,0.3)`,
     },
     logoImg: { width: '100%', height: '100%', objectFit: 'cover', display: 'block' },
-    brandText: { display: 'flex', alignItems: 'center', gap: 0 },
-    appName: { fontSize: 26, fontWeight: 700, color: c.text.primary, fontFamily: orb, letterSpacing: 2 },
-    tagline: { fontSize: 10, color: c.text.dim, letterSpacing: 4, fontFamily: mono, marginTop: -2 },
     card: {
       width: 380, background: c.bg.surface, border: `1px solid ${c.border.subtle}`,
       borderRadius: 16, padding: '32px 28px 28px',
