@@ -1,5 +1,5 @@
 /**
- * Stripe integration for FlowCode subscriptions.
+ * Stripe integration for FlowADE subscriptions.
  * Uses Stripe Checkout (redirect) — no Stripe.js SDK needed on the client.
  * Actual checkout sessions are created server-side (Supabase Edge Function).
  */

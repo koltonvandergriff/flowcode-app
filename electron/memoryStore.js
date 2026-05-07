@@ -4,7 +4,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync, unlink
 
 export class MemoryStore {
   constructor() {
-    this.memoryDir = join(app.getPath('userData'), 'flowcode-data', 'memory');
+    this.memoryDir = join(app.getPath('userData'), 'flowade-data', 'memory');
     this.ensureDir();
   }
 

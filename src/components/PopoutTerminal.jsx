@@ -12,7 +12,7 @@ import { useTheme } from '../hooks/useTheme';
  */
 export default function PopoutTerminal() {
   const { colors, terminalTheme } = useTheme();
-  const terminalId = window.flowcode?.window?.getPopoutTerminalId?.();
+  const terminalId = window.flowade?.window?.getPopoutTerminalId?.();
   const termRef = useRef(null);
   const xtermRef = useRef(null);
   const fitRef = useRef(null);
@@ -52,17 +52,17 @@ export default function PopoutTerminal() {
     const pasteHandler = (e) => {
       e.preventDefault();
       const text = e.clipboardData?.getData('text');
-      if (text) window.flowcode?.terminal.write(terminalId, text);
+      if (text) window.flowade?.terminal.write(terminalId, text);
     };
     termEl.addEventListener('paste', pasteHandler);
 
     // Subscribe to data from the already-spawned PTY (the main window owns the PTY)
-    unsubDataRef.current = window.flowcode.terminal.onData((id, data) => {
+    unsubDataRef.current = window.flowade.terminal.onData((id, data) => {
       if (id !== terminalId) return;
       term.write(data);
     });
 
-    unsubExitRef.current = window.flowcode.terminal.onExit((id, exitCode) => {
+    unsubExitRef.current = window.flowade.terminal.onExit((id, exitCode) => {
       if (id !== terminalId) return;
       setStatus('disconnected');
       term.writeln(`\r\n\x1b[33m[Session ended — code ${exitCode}]\x1b[0m`);
@@ -72,11 +72,11 @@ export default function PopoutTerminal() {
 
     // Forward typed data back to PTY
     term.onData((data) => {
-      window.flowcode?.terminal.write(terminalId, data);
+      window.flowade?.terminal.write(terminalId, data);
     });
 
     term.onResize(({ cols, rows }) => {
-      window.flowcode?.terminal.resize(terminalId, cols, rows);
+      window.flowade?.terminal.resize(terminalId, cols, rows);
     });
 
     const ro = new ResizeObserver(() => {

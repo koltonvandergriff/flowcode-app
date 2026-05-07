@@ -1,10 +1,10 @@
 /**
- * Mock Subscription Service for FlowCode
- * Stores plan state in localStorage under `flowcode_subscription`.
+ * Mock Subscription Service for FlowADE
+ * Stores plan state in localStorage under `flowade_subscription`.
  * Will be replaced with Supabase + Stripe integration later.
  */
 
-const STORAGE_KEY = 'flowcode_subscription';
+const STORAGE_KEY = 'flowade_subscription';
 
 const PLANS = [
   {

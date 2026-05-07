@@ -62,8 +62,8 @@ export default function BrowserPanel({ open, onToggle, width: propWidth }) {
       const detail = e.detail;
       if (detail?.url) navigate(detail.url);
     };
-    window.addEventListener('flowcode:openInBrowser', handler);
-    return () => window.removeEventListener('flowcode:openInBrowser', handler);
+    window.addEventListener('flowade:openInBrowser', handler);
+    return () => window.removeEventListener('flowade:openInBrowser', handler);
   }, [navigate]);
 
   const handleKeyDown = (e) => {
@@ -153,9 +153,9 @@ export default function BrowserPanel({ open, onToggle, width: propWidth }) {
           />
         </div>
 
-        {!window.flowcode?.window?.isPopout?.() && (
+        {!window.flowade?.window?.isPopout?.() && (
           <button onClick={() => {
-            window.flowcode?.window?.popoutPanel('browser', { width: 1000, height: 700 });
+            window.flowade?.window?.popoutPanel('browser', { width: 1000, height: 700 });
             onToggle();
           }} title="Pop out browser" style={{
             all: 'unset', cursor: 'pointer', display: 'flex',

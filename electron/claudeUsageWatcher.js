@@ -11,7 +11,7 @@ export class ClaudeUsageWatcher {
     this.costTracker = costTracker;
     this.settingsStore = settingsStore;
     this.claudeDir = join(homedir(), '.claude');
-    this.dataDir = join(app.getPath('userData'), 'flowcode-data');
+    this.dataDir = join(app.getPath('userData'), 'flowade-data');
     this.usageLogFile = join(this.dataDir, 'claude_usage.jsonl');
     this.cursorFile = join(this.dataDir, 'claude_usage_cursors.json');
     this.cursors = {};

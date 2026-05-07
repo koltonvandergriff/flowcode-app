@@ -6,13 +6,13 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync } from 
 import { join } from 'path';
 import { homedir } from 'os';
 
-const DATA_DIR = process.env.FLOWCODE_DATA_DIR || join(
+const DATA_DIR = process.env.FLOWADE_DATA_DIR || join(
   process.platform === 'win32'
-    ? join(process.env.APPDATA || join(homedir(), 'AppData', 'Roaming'), 'flowcode')
+    ? join(process.env.APPDATA || join(homedir(), 'AppData', 'Roaming'), 'flowade')
     : process.platform === 'darwin'
-      ? join(homedir(), 'Library', 'Application Support', 'flowcode')
-      : join(homedir(), '.config', 'flowcode'),
-  'flowcode-data'
+      ? join(homedir(), 'Library', 'Application Support', 'flowade')
+      : join(homedir(), '.config', 'flowade'),
+  'flowade-data'
 );
 
 const WORKSPACES_DIR = join(DATA_DIR, 'workspaces');
@@ -62,13 +62,13 @@ function getMemoryEntries() {
 ensureDirs();
 
 const server = new McpServer({
-  name: 'flowcode',
+  name: 'flowade',
   version: '0.1.0',
 });
 
 // --- Resources ---
 
-server.resource('workspace', 'flowcode://workspace/current', async (uri) => ({
+server.resource('workspace', 'flowade://workspace/current', async (uri) => ({
   contents: [{
     uri: uri.href,
     mimeType: 'application/json',
@@ -76,7 +76,7 @@ server.resource('workspace', 'flowcode://workspace/current', async (uri) => ({
   }],
 }));
 
-server.resource('tasks', 'flowcode://tasks', async (uri) => ({
+server.resource('tasks', 'flowade://tasks', async (uri) => ({
   contents: [{
     uri: uri.href,
     mimeType: 'application/json',
@@ -84,7 +84,7 @@ server.resource('tasks', 'flowcode://tasks', async (uri) => ({
   }],
 }));
 
-server.resource('memory', 'flowcode://memory', async (uri) => ({
+server.resource('memory', 'flowade://memory', async (uri) => ({
   contents: [{
     uri: uri.href,
     mimeType: 'application/json',
@@ -95,8 +95,8 @@ server.resource('memory', 'flowcode://memory', async (uri) => ({
 // --- Tools ---
 
 server.tool(
-  'flowcode_get_workspace',
-  'Get the current active FlowCode workspace (layout, terminals, macros)',
+  'flowade_get_workspace',
+  'Get the current active FlowADE workspace (layout, terminals, macros)',
   {},
   async () => {
     const ws = getActiveWorkspace();
@@ -105,8 +105,8 @@ server.tool(
 );
 
 server.tool(
-  'flowcode_list_workspaces',
-  'List all FlowCode workspaces',
+  'flowade_list_workspaces',
+  'List all FlowADE workspaces',
   {},
   async () => {
     try {
@@ -121,8 +121,8 @@ server.tool(
 );
 
 server.tool(
-  'flowcode_list_tasks',
-  'List all tasks from the FlowCode task board',
+  'flowade_list_tasks',
+  'List all tasks from the FlowADE task board',
   {},
   async () => {
     return { content: [{ type: 'text', text: JSON.stringify(getTasks(), null, 2) }] };
@@ -130,8 +130,8 @@ server.tool(
 );
 
 server.tool(
-  'flowcode_create_task',
-  'Create a new task on the FlowCode task board',
+  'flowade_create_task',
+  'Create a new task on the FlowADE task board',
   { title: z.string(), column: z.enum(['todo', 'active', 'done']).default('todo') },
   async ({ title, column }) => {
     const tasks = getTasks();
@@ -143,7 +143,7 @@ server.tool(
 );
 
 server.tool(
-  'flowcode_update_task',
+  'flowade_update_task',
   'Move a task to a different column or update its title',
   { id: z.string(), column: z.enum(['todo', 'active', 'done']).optional(), title: z.string().optional() },
   async ({ id, column, title }) => {
@@ -158,7 +158,7 @@ server.tool(
 );
 
 server.tool(
-  'flowcode_delete_task',
+  'flowade_delete_task',
   'Delete a task from the task board',
   { id: z.string() },
   async ({ id }) => {
@@ -169,7 +169,7 @@ server.tool(
 );
 
 server.tool(
-  'flowcode_read_memory',
+  'flowade_read_memory',
   'Read all memory entries or filter by tag',
   { tag: z.string().optional() },
   async ({ tag }) => {
@@ -180,8 +180,8 @@ server.tool(
 );
 
 server.tool(
-  'flowcode_write_memory',
-  'Save a memory entry (fact, decision, context) to FlowCode persistent memory',
+  'flowade_write_memory',
+  'Save a memory entry (fact, decision, context) to FlowADE persistent memory',
   {
     title: z.string(),
     content: z.string(),
@@ -198,7 +198,7 @@ server.tool(
 );
 
 server.tool(
-  'flowcode_update_memory',
+  'flowade_update_memory',
   'Update an existing memory entry',
   { id: z.string(), title: z.string().optional(), content: z.string().optional(), tags: z.array(z.string()).optional() },
   async ({ id, title, content, tags }) => {
@@ -215,7 +215,7 @@ server.tool(
 );
 
 server.tool(
-  'flowcode_delete_memory',
+  'flowade_delete_memory',
   'Delete a memory entry',
   { id: z.string() },
   async ({ id }) => {
@@ -227,7 +227,7 @@ server.tool(
 );
 
 server.tool(
-  'flowcode_get_project_context',
+  'flowade_get_project_context',
   'Get combined project context: workspace + tasks + memory (useful for onboarding a new agent)',
   {},
   async () => {

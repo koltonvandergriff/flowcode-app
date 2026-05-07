@@ -1,6 +1,6 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
-contextBridge.exposeInMainWorld('flowcode', {
+contextBridge.exposeInMainWorld('flowade', {
   terminal: {
     spawn: (opts) => ipcRenderer.invoke('terminal:spawn', opts),
     write: (id, data) => ipcRenderer.send('terminal:write', { id, data }),

@@ -1,24 +1,24 @@
 {
   "expo": {
-    "name": "FlowCode",
-    "slug": "flowcode-mobile",
+    "name": "FlowADE",
+    "slug": "flowade-mobile",
     "version": "0.1.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
-    "scheme": "flowcode",
+    "scheme": "flowade",
     "splash": {
       "backgroundColor": "#0c101a"
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.dutchmade.flowcode"
+      "bundleIdentifier": "com.dutchmade.flowade"
     },
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#0c101a"
       },
-      "package": "com.dutchmade.flowcode"
+      "package": "com.dutchmade.flowade"
     },
     "plugins": [
       [

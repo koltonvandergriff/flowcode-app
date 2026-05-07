@@ -17,7 +17,7 @@ const STATUS_LABELS = {
 
 const PANEL_WIDTH = 260;
 const COLLAPSED_WIDTH = 36;
-const LS_KEY = 'flowcode_git_panel_open';
+const LS_KEY = 'flowade_git_panel_open';
 
 export default function FileActivity({ cwd, open, onToggle }) {
   const { colors } = useTheme();
@@ -53,7 +53,7 @@ export default function FileActivity({ cwd, open, onToggle }) {
 
   const openDiff = async (file) => {
     if (!cwd) return;
-    const result = await window.flowcode?.git.diff(cwd, file);
+    const result = await window.flowade?.git.diff(cwd, file);
     setDiffContent(result?.diff || '(no diff available)');
     setDiffFile(file);
   };

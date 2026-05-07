@@ -23,7 +23,7 @@ export default function MemoryPanel({ open, onToggle }) {
   const [form, setForm] = useState({ title: '', content: '', type: 'note', tags: '' });
 
   const load = useCallback(async () => {
-    const data = await window.flowcode?.memory.list();
+    const data = await window.flowade?.memory.list();
     setEntries(data || []);
   }, []);
 
@@ -40,7 +40,7 @@ export default function MemoryPanel({ open, onToggle }) {
 
   const handleCreate = async () => {
     if (!form.title.trim()) return;
-    await window.flowcode?.memory.create({
+    await window.flowade?.memory.create({
       title: form.title.trim(),
       content: form.content.trim(),
       type: form.type,
@@ -53,7 +53,7 @@ export default function MemoryPanel({ open, onToggle }) {
 
   const handleUpdate = async () => {
     if (!editingId || !form.title.trim()) return;
-    await window.flowcode?.memory.update(editingId, {
+    await window.flowade?.memory.update(editingId, {
       title: form.title.trim(),
       content: form.content.trim(),
       type: form.type,
@@ -65,7 +65,7 @@ export default function MemoryPanel({ open, onToggle }) {
   };
 
   const handleDelete = async (id) => {
-    await window.flowcode?.memory.delete(id);
+    await window.flowade?.memory.delete(id);
     load();
   };
 

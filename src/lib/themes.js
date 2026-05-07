@@ -1,10 +1,10 @@
 // ---------------------------------------------------------------------------
-// FlowCode Palette System
+// FlowADE Palette System
 // Three dark palettes + one light. Switch via ThemeContext.
 // ---------------------------------------------------------------------------
 
-// FLOWCODE — brand palette. Electric cyan from the FC logo, deep circuit-board dark.
-const FLOWCODE = {
+// FLOWADE — brand palette. Electric cyan from the FC logo, deep circuit-board dark.
+const FLOWADE = {
   bg: {
     base: '#060a12',
     surface: '#0a1020',
@@ -299,12 +299,12 @@ const ONEDARK = {
   gradient: { primary: 'linear-gradient(135deg, #61afef, #56b6c2)', surface: 'linear-gradient(180deg, rgba(97, 175, 239, 0.02) 0%, transparent 100%)', glow: 'radial-gradient(ellipse at 50% 0%, rgba(97, 175, 239, 0.06) 0%, transparent 70%)', mesh: `radial-gradient(ellipse 80% 50% at 20% 80%, rgba(152, 195, 121, 0.03) 0%, transparent 100%), radial-gradient(ellipse 60% 60% at 80% 20%, rgba(97, 175, 239, 0.04) 0%, transparent 100%)` },
 };
 
-// Default dark = FlowCode brand palette
-export const DARK_COLORS = FLOWCODE;
+// Default dark = FlowADE brand palette
+export const DARK_COLORS = FLOWADE;
 
 // All palettes for palette picker
 export const PALETTES = {
-  flowcode: FLOWCODE,
+  flowade: FLOWADE,
   aurora: AURORA,
   ember: EMBER,
   abyss: ABYSS,
@@ -368,7 +368,7 @@ export const LIGHT_COLORS = {
 };
 
 // Terminal themes matched to palettes
-export const FLOWCODE_TERMINAL = {
+export const FLOWADE_TERMINAL = {
   background: '#0a1020',
   foreground: '#d4dce8',
   cursor: '#00d4ff',
@@ -465,7 +465,7 @@ export const ABYSS_TERMINAL = {
 };
 
 // Legacy exports
-export const DARK_TERMINAL_THEME = FLOWCODE_TERMINAL;
+export const DARK_TERMINAL_THEME = FLOWADE_TERMINAL;
 
 export const LIGHT_TERMINAL_THEME = {
   background: '#ffffff',
@@ -513,7 +513,7 @@ const ONEDARK_TERMINAL = termTheme('#282c34', '#abb2bf', '#61afef', { red: '#e06
 
 // Palette-to-terminal mapping
 export const PALETTE_TERMINALS = {
-  flowcode: FLOWCODE_TERMINAL,
+  flowade: FLOWADE_TERMINAL,
   aurora: AURORA_TERMINAL,
   ember: EMBER_TERMINAL,
   abyss: ABYSS_TERMINAL,

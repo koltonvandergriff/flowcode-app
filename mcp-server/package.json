@@ -1,11 +1,11 @@
 {
-  "name": "@flowcode/mcp-server",
+  "name": "@flowade/mcp-server",
   "version": "0.1.0",
-  "description": "FlowCode MCP server — exposes workspace, tasks, memory, and terminals to external AI tools",
+  "description": "FlowADE MCP server — exposes workspace, tasks, memory, and terminals to external AI tools",
   "type": "module",
   "main": "index.js",
   "bin": {
-    "flowcode-mcp": "./index.js"
+    "flowade-mcp": "./index.js"
   },
   "scripts": {
     "start": "node index.js"

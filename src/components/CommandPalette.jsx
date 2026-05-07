@@ -13,7 +13,7 @@ function fuzzyMatch(text, query) {
   return qi === q.length;
 }
 
-const RECENT_KEY = 'flowcode_recent_commands';
+const RECENT_KEY = 'flowade_recent_commands';
 const MAX_RECENT = 5;
 
 function getRecentIds() {

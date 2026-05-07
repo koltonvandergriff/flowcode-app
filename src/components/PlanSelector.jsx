@@ -90,7 +90,7 @@ export default function PlanSelector({ onComplete }) {
     if (selected === 'starter') {
       setProcessing(true);
       upgradePlan('starter').then(() => {
-        localStorage.setItem('flowcode_plan_selected', 'true');
+        localStorage.setItem('flowade_plan_selected', 'true');
         onComplete();
       });
     } else {
@@ -101,7 +101,7 @@ export default function PlanSelector({ onComplete }) {
   const handlePayment = useCallback(async () => {
     setProcessing(true);
     await upgradePlan(selected);
-    localStorage.setItem('flowcode_plan_selected', 'true');
+    localStorage.setItem('flowade_plan_selected', 'true');
     setTimeout(() => onComplete(), 400);
   }, [selected, onComplete]);
 
@@ -156,7 +156,7 @@ export default function PlanSelector({ onComplete }) {
             margin: '10px 0 0', lineHeight: 1.5,
           }}>
             {step === 'choose'
-              ? 'Start free or unlock the full FlowCode experience. Upgrade or cancel anytime.'
+              ? 'Start free or unlock the full FlowADE experience. Upgrade or cancel anytime.'
               : `You're subscribing to the ${plans.find(p => p.id === selected)?.name} plan.`}
           </p>
         </div>

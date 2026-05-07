@@ -49,9 +49,9 @@ export default function UsagePanel() {
   const [collapsed, setCollapsed] = useState(true);
 
   const refresh = useCallback(async () => {
-    if (!window.flowcode?.cost) return;
+    if (!window.flowade?.cost) return;
     try {
-      const data = await window.flowcode.cost.getUsage();
+      const data = await window.flowade.cost.getUsage();
       setUsage(data);
     } catch {}
     try {
@@ -62,7 +62,7 @@ export default function UsagePanel() {
   useEffect(() => {
     refresh();
     const iv = setInterval(refresh, 10000);
-    const unsub = window.flowcode?.cost?.onUpdated?.(refresh);
+    const unsub = window.flowade?.cost?.onUpdated?.(refresh);
     return () => {
       clearInterval(iv);
       unsub?.();

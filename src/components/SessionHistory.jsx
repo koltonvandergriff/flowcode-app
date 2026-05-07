@@ -200,7 +200,7 @@ function TranscriptViewer({ session, colors }) {
               key={format}
               onClick={async () => {
                 try {
-                  const content = await window.flowcode.history.export(session.id, format);
+                  const content = await window.flowade.history.export(session.id, format);
                   if (content) {
                     const safeLabel = session.label.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 40);
                     triggerDownload(content, `${safeLabel}.${ext}`);
@@ -289,9 +289,9 @@ export default function SessionHistory({ open, onClose }) {
   const [loading, setLoading] = useState(false);
 
   const refresh = useCallback(async () => {
-    if (!window.flowcode?.history) return;
+    if (!window.flowade?.history) return;
     try {
-      const list = await window.flowcode.history.list();
+      const list = await window.flowade.history.list();
       setSessions(list || []);
     } catch {
       setSessions([]);
@@ -308,10 +308,10 @@ export default function SessionHistory({ open, onClose }) {
   }, [open, refresh]);
 
   const loadSession = useCallback(async (id) => {
-    if (!window.flowcode?.history) return;
+    if (!window.flowade?.history) return;
     setLoading(true);
     try {
-      const data = await window.flowcode.history.load(id);
+      const data = await window.flowade.history.load(id);
       setSelectedId(id);
       setActiveSession(data);
     } catch {
@@ -321,9 +321,9 @@ export default function SessionHistory({ open, onClose }) {
   }, []);
 
   const deleteSession = useCallback(async (id) => {
-    if (!window.flowcode?.history) return;
+    if (!window.flowade?.history) return;
     try {
-      await window.flowcode.history.delete(id);
+      await window.flowade.history.delete(id);
       if (selectedId === id) {
         setSelectedId(null);
         setActiveSession(null);

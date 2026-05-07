@@ -77,7 +77,7 @@ function createWindow() {
     ...bounds,
     minWidth: 800,
     minHeight: 600,
-    title: 'FlowCode',
+    title: 'FlowADE',
     backgroundColor: '#161729',
     show: false,
     frame: false,
@@ -99,7 +99,7 @@ function createWindow() {
   const savedBounds = sessionStore.getWindowBounds();
   if (!savedBounds) mainWindow.maximize();
 
-  const freshMode = process.argv.includes('--fresh') || process.env.FLOWCODE_FRESH === '1';
+  const freshMode = process.argv.includes('--fresh') || process.env.FLOWADE_FRESH === '1';
 
   if (isDev) {
     mainWindow.loadURL('http://localhost:5173' + (freshMode ? '?fresh=1' : ''));
@@ -341,7 +341,7 @@ ipcMain.handle('dialog:saveImageTemp', async (_, { dataUrl, name }) => {
   const fs = await import('fs');
   const path = await import('path');
   const os = await import('os');
-  const tmpDir = path.default.join(os.default.tmpdir(), 'flowcode-images');
+  const tmpDir = path.default.join(os.default.tmpdir(), 'flowade-images');
   if (!fs.default.existsSync(tmpDir)) fs.default.mkdirSync(tmpDir, { recursive: true });
   const match = dataUrl.match(/^data:(image\/\w+);base64,(.+)$/);
   if (!match) return null;
@@ -462,7 +462,7 @@ ipcMain.handle('fs:exists', async (_, filePath) => {
 
 async function ghFetch(path, token) {
   const res = await fetch(`https://api.github.com${path}`, {
-    headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json', 'User-Agent': 'FlowCode' },
+    headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json', 'User-Agent': 'FlowADE' },
   });
   if (!res.ok) throw new Error(`GitHub ${res.status}: ${res.statusText}`);
   return res.json();
@@ -549,7 +549,7 @@ ipcMain.handle('window:popout', (_, { terminalId, bounds }) => {
     height,
     minWidth: 400,
     minHeight: 300,
-    title: 'FlowCode — Terminal',
+    title: 'FlowADE — Terminal',
     backgroundColor: '#161729',
     frame: false,
     titleBarStyle: 'hidden',
@@ -595,7 +595,7 @@ ipcMain.handle('window:popoutPanel', (_, { panel, bounds }) => {
     height,
     minWidth: 400,
     minHeight: 300,
-    title: `FlowCode — ${panel === 'code' ? 'Code Editor' : panel === 'browser' ? 'Browser' : panel}`,
+    title: `FlowADE — ${panel === 'code' ? 'Code Editor' : panel === 'browser' ? 'Browser' : panel}`,
     backgroundColor: '#161729',
     frame: false,
     titleBarStyle: 'hidden',
@@ -642,10 +642,10 @@ ipcMain.handle('window:closePopout', (_, windowId) => {
 function createTray() {
   const icon = nativeImage.createEmpty();
   tray = new Tray(icon);
-  tray.setToolTip('FlowCode');
+  tray.setToolTip('FlowADE');
 
   const contextMenu = Menu.buildFromTemplate([
-    { label: 'Show FlowCode', click: () => { mainWindow?.show(); mainWindow?.focus(); } },
+    { label: 'Show FlowADE', click: () => { mainWindow?.show(); mainWindow?.focus(); } },
     { label: 'Settings', click: () => { mainWindow?.show(); mainWindow?.webContents.send('app:openSettings'); } },
     { type: 'separator' },
     { label: 'Quit', click: () => { forceQuit = true; app.quit(); } },

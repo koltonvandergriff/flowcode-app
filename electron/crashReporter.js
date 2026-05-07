@@ -7,10 +7,10 @@ const MAX_LOG_FILES = 10;
 
 export class CrashReporter {
   constructor() {
-    const dataDir = join(app.getPath('userData'), 'flowcode-data', 'logs');
+    const dataDir = join(app.getPath('userData'), 'flowade-data', 'logs');
     if (!existsSync(dataDir)) mkdirSync(dataDir, { recursive: true });
     this.logDir = dataDir;
-    this.logPath = join(dataDir, 'flowcode.log');
+    this.logPath = join(dataDir, 'flowade.log');
     this._pruneOldLogs();
   }
 
@@ -29,7 +29,7 @@ export class CrashReporter {
       const stat = statSync(this.logPath);
       if (stat.size > MAX_LOG_SIZE) {
         const ts = new Date().toISOString().replace(/[:.]/g, '-');
-        const rotated = join(this.logDir, `flowcode-${ts}.log`);
+        const rotated = join(this.logDir, `flowade-${ts}.log`);
         writeFileSync(rotated, readFileSync(this.logPath));
         writeFileSync(this.logPath, '');
         this._pruneOldLogs();
@@ -93,6 +93,6 @@ export class CrashReporter {
     process.on('unhandledRejection', (reason) => {
       this.error('Unhandled rejection', { reason: String(reason) });
     });
-    this.info('FlowCode started', { version: app.getVersion(), platform: process.platform });
+    this.info('FlowADE started', { version: app.getVersion(), platform: process.platform });
   }
 }

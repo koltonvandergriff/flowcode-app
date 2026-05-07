@@ -9,11 +9,11 @@ export function useGitStatus(cwd) {
 
   const refresh = useCallback(async () => {
     const dir = cwdRef.current;
-    if (!dir || !window.flowcode?.git) { setFiles([]); return; }
+    if (!dir || !window.flowade?.git) { setFiles([]); return; }
     try {
       const [statusResult, branchResult] = await Promise.all([
-        window.flowcode.git.status(dir),
-        window.flowcode.git.branch(dir),
+        window.flowade.git.status(dir),
+        window.flowade.git.branch(dir),
       ]);
       if (cwdRef.current !== dir) return;
       setFiles(statusResult.files || []);

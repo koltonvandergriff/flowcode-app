@@ -16,7 +16,7 @@ export default function FeedbackPanel({ open, onClose }) {
   const generateReport = async () => {
     setSending(true);
     try {
-      const report = await window.flowcode?.crash.report(description);
+      const report = await window.flowade?.crash.report(description);
       setReportData(report);
     } catch {
       setReportData('Failed to generate report');
@@ -38,7 +38,7 @@ export default function FeedbackPanel({ open, onClose }) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `flowcode-report-${Date.now()}.json`;
+    a.download = `flowade-report-${Date.now()}.json`;
     a.click();
     URL.revokeObjectURL(url);
   };

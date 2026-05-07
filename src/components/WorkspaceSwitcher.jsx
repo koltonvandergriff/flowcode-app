@@ -41,7 +41,7 @@ export default function WorkspaceSwitcher() {
   const handleExport = useCallback(async () => {
     if (!activeId) return;
     try {
-      const data = await window.flowcode.workspace.load(activeId);
+      const data = await window.flowade.workspace.load(activeId);
       if (!data) {
         addToast('Failed to load workspace data', 'error');
         return;
@@ -64,7 +64,7 @@ export default function WorkspaceSwitcher() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `flowcode-workspace-${data.name.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase()}.json`;
+      a.download = `flowade-workspace-${data.name.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase()}.json`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -102,7 +102,7 @@ export default function WorkspaceSwitcher() {
           })),
           macros: data.macros || [],
         };
-        await window.flowcode.workspace.save(ws.id, saveData);
+        await window.flowade.workspace.save(ws.id, saveData);
         await switchWorkspace(ws.id);
         addToast(`Workspace "${data.name}" imported`, 'success');
       }

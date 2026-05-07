@@ -55,12 +55,12 @@ export default function PluginManagerPanel({ open, onClose }) {
   const [loading, setLoading] = useState(false);
 
   const loadPlugins = useCallback(async () => {
-    if (!window.flowcode?.plugins) return;
+    if (!window.flowade?.plugins) return;
     setLoading(true);
     try {
       const [list, path] = await Promise.all([
-        window.flowcode.plugins.list(),
-        window.flowcode.plugins.getPath(),
+        window.flowade.plugins.list(),
+        window.flowade.plugins.getPath(),
       ]);
       setPlugins(list);
       setPluginsPath(path);
@@ -76,18 +76,18 @@ export default function PluginManagerPanel({ open, onClose }) {
   }, [open, loadPlugins]);
 
   const handleToggle = useCallback(async (plugin) => {
-    if (!window.flowcode?.plugins) return;
+    if (!window.flowade?.plugins) return;
     if (plugin.enabled) {
-      await window.flowcode.plugins.disable(plugin.folderName);
+      await window.flowade.plugins.disable(plugin.folderName);
     } else {
-      await window.flowcode.plugins.enable(plugin.folderName);
+      await window.flowade.plugins.enable(plugin.folderName);
     }
     loadPlugins();
   }, [loadPlugins]);
 
   const openFolder = useCallback(() => {
-    if (window.flowcode?.plugins) {
-      window.flowcode.plugins.openFolder();
+    if (window.flowade?.plugins) {
+      window.flowade.plugins.openFolder();
     }
   }, []);
 
@@ -128,7 +128,7 @@ export default function PluginManagerPanel({ open, onClose }) {
               fontSize: 10, color: colors.text.dim, fontFamily: fc,
               letterSpacing: 0.5, margin: '4px 0 0',
             }}>
-              Extend FlowCode with community plugins
+              Extend FlowADE with community plugins
             </p>
           </div>
           <button onClick={onClose} style={{

@@ -211,7 +211,7 @@ export default function HelpGuide({ open, onClose }) {
             {SECTIONS.reduce((c, s) => c + s.items.length, 0)} topics across {SECTIONS.length} sections
           </span>
           <span style={{ fontSize: 10, color: colors.text.ghost, fontFamily: fc }}>
-            FlowCode v{window.flowcode?.version || '0.1.0'}
+            FlowADE v{window.flowade?.version || '0.1.0'}
           </span>
         </div>
       </div>

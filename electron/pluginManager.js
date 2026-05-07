@@ -5,7 +5,7 @@ import { existsSync, readdirSync, readFileSync, mkdirSync } from 'fs';
 export class PluginManager {
   constructor(settingsStore) {
     this.settingsStore = settingsStore;
-    this.pluginsDir = join(app.getPath('userData'), 'flowcode-plugins');
+    this.pluginsDir = join(app.getPath('userData'), 'flowade-plugins');
     if (!existsSync(this.pluginsDir)) {
       mkdirSync(this.pluginsDir, { recursive: true });
     }

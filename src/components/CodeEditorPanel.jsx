@@ -118,7 +118,7 @@ export default function CodeEditorPanel({ open, onToggle }) {
   useEffect(() => {
     if (open && !currentDir) {
       const fallback = 'C:\\Users\\kolto\\Desktop\\Claude';
-      window.flowcode?.settings?.get('defaultCwd').then(cwd => {
+      window.flowade?.settings?.get('defaultCwd').then(cwd => {
         setCurrentDir(cwd || fallback);
       }).catch(() => setCurrentDir(fallback));
     }
@@ -127,7 +127,7 @@ export default function CodeEditorPanel({ open, onToggle }) {
   useEffect(() => {
     if (!currentDir || !open) return;
     setLoading(true);
-    window.flowcode?.fs?.readDir(currentDir).then(items => {
+    window.flowade?.fs?.readDir(currentDir).then(items => {
       setEntries(items || []);
       setLoading(false);
     }).catch(() => setLoading(false));
@@ -140,7 +140,7 @@ export default function CodeEditorPanel({ open, onToggle }) {
       return;
     }
     try {
-      const content = await window.flowcode?.fs?.readFile(filePath);
+      const content = await window.flowade?.fs?.readFile(filePath);
       setFileContents(prev => ({ ...prev, [filePath]: content }));
       setOpenFiles(prev => [...prev, { path: filePath, name }]);
       setActiveFileIdx(openFiles.length);
@@ -158,7 +158,7 @@ export default function CodeEditorPanel({ open, onToggle }) {
   const saveFile = useCallback(async (filePath) => {
     if (!dirty[filePath]) return;
     try {
-      await window.flowcode?.fs?.writeFile(filePath, fileContents[filePath]);
+      await window.flowade?.fs?.writeFile(filePath, fileContents[filePath]);
       setDirty(prev => ({ ...prev, [filePath]: false }));
     } catch {}
   }, [dirty, fileContents]);
@@ -199,7 +199,7 @@ export default function CodeEditorPanel({ open, onToggle }) {
       return;
     }
     try {
-      const items = await window.flowcode?.fs?.readDir(dirPath);
+      const items = await window.flowade?.fs?.readDir(dirPath);
       setSubEntries(prev => ({ ...prev, [dirPath]: items || [] }));
       setExpandedDirs(prev => ({ ...prev, [dirPath]: true }));
     } catch {}
@@ -297,9 +297,9 @@ export default function CodeEditorPanel({ open, onToggle }) {
           CODE EDITOR
         </span>
         <div style={{ flex: 1 }} />
-        {!window.flowcode?.window?.isPopout?.() && (
+        {!window.flowade?.window?.isPopout?.() && (
           <button onClick={() => {
-            window.flowcode?.window?.popoutPanel('code', { width: 900, height: 700 });
+            window.flowade?.window?.popoutPanel('code', { width: 900, height: 700 });
             onToggle();
           }} title="Pop out editor" style={{
             all: 'unset', cursor: 'pointer', display: 'flex',

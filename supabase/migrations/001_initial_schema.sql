@@ -1,4 +1,4 @@
--- FlowCode Cloud Sync Schema
+-- FlowADE Cloud Sync Schema
 -- Run this in your Supabase SQL Editor after creating the project
 
 -- Profiles (extends Supabase auth.users)
@@ -89,7 +89,7 @@ create index idx_tasks_user_status on public.tasks(user_id, status);
 create table if not exists public.user_preferences (
   user_id uuid references auth.users(id) on delete cascade primary key,
   theme text default 'dark',
-  palette text default 'flowcode',
+  palette text default 'flowade',
   font_size int default 14,
   default_shell text default 'powershell.exe',
   default_cwd text,

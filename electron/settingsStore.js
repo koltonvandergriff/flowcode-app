@@ -22,7 +22,7 @@ const DEFAULTS = {
 
 export class SettingsStore {
   constructor() {
-    const dataDir = join(app.getPath('userData'), 'flowcode-data');
+    const dataDir = join(app.getPath('userData'), 'flowade-data');
     if (!existsSync(dataDir)) mkdirSync(dataDir, { recursive: true });
     this.filePath = join(dataDir, 'settings.json');
     this.cache = this._load();

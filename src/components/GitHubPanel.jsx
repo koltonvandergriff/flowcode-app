@@ -26,7 +26,7 @@ export default function GitHubPanel({ open, onToggle }) {
   const [repoTab, setRepoTab] = useState('files');
 
   const loadUser = useCallback(async () => {
-    const data = await window.flowcode?.github.user();
+    const data = await window.flowade?.github.user();
     if (data?.error) { setError(data.error); return; }
     setUser(data);
     setError(null);
@@ -34,7 +34,7 @@ export default function GitHubPanel({ open, onToggle }) {
 
   const loadRepos = useCallback(async () => {
     setLoading(true);
-    const data = await window.flowcode?.github.repos({});
+    const data = await window.flowade?.github.repos({});
     setLoading(false);
     if (data?.error) { setError(data.error); return; }
     setRepos(Array.isArray(data) ? data : []);
@@ -50,9 +50,9 @@ export default function GitHubPanel({ open, onToggle }) {
     setLoading(true);
 
     const [files, prs, issues] = await Promise.all([
-      window.flowcode?.github.contents({ owner, repo: name, path: '' }),
-      window.flowcode?.github.prs({ owner, repo: name }),
-      window.flowcode?.github.issues({ owner, repo: name }),
+      window.flowade?.github.contents({ owner, repo: name, path: '' }),
+      window.flowade?.github.prs({ owner, repo: name }),
+      window.flowade?.github.issues({ owner, repo: name }),
     ]);
 
     setRepoData({
@@ -71,7 +71,7 @@ export default function GitHubPanel({ open, onToggle }) {
     if (!selectedRepo) return;
     setFilePath(path);
     setLoading(true);
-    const files = await window.flowcode?.github.contents({ owner: selectedRepo.owner, repo: selectedRepo.name, path });
+    const files = await window.flowade?.github.contents({ owner: selectedRepo.owner, repo: selectedRepo.name, path });
     setRepoData(prev => ({
       ...prev,
       files: Array.isArray(files) ? files.sort((a, b) => {

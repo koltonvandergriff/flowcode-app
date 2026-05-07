@@ -1,4 +1,4 @@
-// Auto-updater wrapper for FlowCode
+// Auto-updater wrapper for FlowADE
 // Wraps electron-updater with error handling and IPC integration
 // Falls back to a no-op stub when electron-updater is unavailable (dev mode)
 
@@ -57,7 +57,7 @@ export function initAutoUpdater(mainWindow) {
   autoUpdater.autoInstallOnAppQuit = true;
 
   // Configurable update feed URL — defaults to GitHub Releases.
-  // To point at a custom server, set the FLOWCODE_UPDATE_URL env var or
+  // To point at a custom server, set the FLOWADE_UPDATE_URL env var or
   // update the "publish" block in package.json.
 
   // ---- Updater events -> renderer IPC ----

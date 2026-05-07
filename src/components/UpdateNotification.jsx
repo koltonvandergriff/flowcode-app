@@ -21,7 +21,7 @@ export default function UpdateNotification() {
   const [progress, setProgress] = useState(0);
 
   useEffect(() => {
-    const api = window.flowcode?.update;
+    const api = window.flowade?.update;
     if (!api) return;
 
     const unsubs = [
@@ -60,11 +60,11 @@ export default function UpdateNotification() {
   }, []);
 
   const handleCheckForUpdates = useCallback(() => {
-    window.flowcode?.update?.check();
+    window.flowade?.update?.check();
   }, []);
 
   const handleInstall = useCallback(() => {
-    window.flowcode?.update?.install();
+    window.flowade?.update?.install();
   }, []);
 
   const handleDismiss = useCallback(() => {

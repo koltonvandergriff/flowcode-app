@@ -192,13 +192,13 @@ export default function AnalyticsDashboard({ open, onClose }) {
   ];
 
   const loadData = useCallback(async () => {
-    if (!window.flowcode?.cost) return;
+    if (!window.flowade?.cost) return;
     setLoading(true);
     try {
       const [history, raw, usageData] = await Promise.all([
-        window.flowcode.cost.getHistory('month'),
-        window.flowcode.cost.getRawHistory('month'),
-        window.flowcode.cost.getUsage(),
+        window.flowade.cost.getHistory('month'),
+        window.flowade.cost.getRawHistory('month'),
+        window.flowade.cost.getUsage(),
       ]);
       setDailyData(history || []);
       setRawEntries(raw || []);
@@ -211,12 +211,12 @@ export default function AnalyticsDashboard({ open, onClose }) {
   }, []);
 
   const loadCodeburn = useCallback(async (period) => {
-    if (!window.flowcode?.codeburn) return;
+    if (!window.flowade?.codeburn) return;
     setCbLoading(true);
     try {
       const [report, optimize] = await Promise.all([
-        window.flowcode.codeburn.report(period || cbPeriod),
-        window.flowcode.codeburn.optimize(),
+        window.flowade.codeburn.report(period || cbPeriod),
+        window.flowade.codeburn.optimize(),
       ]);
       setCbReport(report);
       setCbOptimize(optimize);

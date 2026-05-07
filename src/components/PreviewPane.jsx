@@ -86,7 +86,7 @@ export default function PreviewPane({ url, onClose, onPopout }) {
       onPopout(currentUrl);
     }
     // Also dispatch a custom event for the main app to handle
-    window.dispatchEvent(new CustomEvent('flowcode:previewPopout', {
+    window.dispatchEvent(new CustomEvent('flowade:previewPopout', {
       detail: { url: currentUrl },
     }));
   }, [currentUrl, onPopout]);

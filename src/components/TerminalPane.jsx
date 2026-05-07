@@ -223,7 +223,7 @@ function ApiChatView({ id, provider, providerDef, inputVal, setInputVal, inputRe
 
   const apiKeyGetter = useCallback(async (keyName) => {
     try {
-      return await window.flowcode?.env?.get(keyName) || null;
+      return await window.flowade?.env?.get(keyName) || null;
     } catch {
       return null;
     }
@@ -259,7 +259,7 @@ function ApiChatView({ id, provider, providerDef, inputVal, setInputVal, inputRe
         } else if (chunk.type === 'error') {
           setMessages((prev) => [...prev, { role: 'error', content: chunk.content }]);
         } else if (chunk.type === 'usage') {
-          window.flowcode?.cost?.track({
+          window.flowade?.cost?.track({
             input: chunk.input, output: chunk.output,
             model: chunk.model, terminalId: id,
           });
@@ -287,16 +287,16 @@ function ApiChatView({ id, provider, providerDef, inputVal, setInputVal, inputRe
         sendMessage(e.detail.text);
       }
     };
-    window.addEventListener('flowcode:apiChatSend', handler);
-    return () => window.removeEventListener('flowcode:apiChatSend', handler);
+    window.addEventListener('flowade:apiChatSend', handler);
+    return () => window.removeEventListener('flowade:apiChatSend', handler);
   }, [id, sendMessage]);
 
   // Also expose for the TerminalPane's own send button via a ref-like pattern
   // We store sendMessage on the window keyed by terminal id
   useEffect(() => {
-    window.__flowcodeApiChat = window.__flowcodeApiChat || {};
-    window.__flowcodeApiChat[id] = sendMessage;
-    return () => { delete window.__flowcodeApiChat?.[id]; };
+    window.__flowadeApiChat = window.__flowadeApiChat || {};
+    window.__flowadeApiChat[id] = sendMessage;
+    return () => { delete window.__flowadeApiChat?.[id]; };
   }, [id, sendMessage]);
 
   const handleDrop = useCallback(async (e) => {
@@ -424,7 +424,7 @@ export default function TerminalPane({
   }, [provider, isApiProvider, settings?.cavemanDefault]);
 
   const sendToTerminal = useCallback((text) => {
-    window.flowcode?.terminal.write(id, text);
+    window.flowade?.terminal.write(id, text);
   }, [id]);
 
   const handleInputSend = useCallback(async () => {
@@ -432,12 +432,12 @@ export default function TerminalPane({
     if (!text && !attachedImages.length) return;
 
     if (isApiProvider) {
-      const sendFn = window.__flowcodeApiChat?.[id];
+      const sendFn = window.__flowadeApiChat?.[id];
       if (sendFn) sendFn(text, attachedImages.length ? attachedImages : undefined);
     } else {
       if (attachedImages.length) {
         for (const img of attachedImages) {
-          const filePath = img.filePath || await window.flowcode?.dialog?.saveImageTemp({ dataUrl: img.dataUrl, name: img.name });
+          const filePath = img.filePath || await window.flowade?.dialog?.saveImageTemp({ dataUrl: img.dataUrl, name: img.name });
           if (filePath) sendToTerminal(filePath + '\r');
         }
       }
@@ -449,7 +449,7 @@ export default function TerminalPane({
   }, [inputVal, attachedImages, sendToTerminal, isApiProvider, id]);
 
   const pickFolder = useCallback(async () => {
-    const folder = await window.flowcode?.dialog.pickFolder(currentCwd);
+    const folder = await window.flowade?.dialog.pickFolder(currentCwd);
     if (folder) {
       setCurrentCwd(folder);
       onCwdChange?.(folder);
@@ -467,12 +467,12 @@ export default function TerminalPane({
         inputRef.current?.focus();
       }
     };
-    window.addEventListener('flowcode:insertToTerminal', handler);
-    return () => window.removeEventListener('flowcode:insertToTerminal', handler);
+    window.addEventListener('flowade:insertToTerminal', handler);
+    return () => window.removeEventListener('flowade:insertToTerminal', handler);
   }, [id]);
 
   const handlePickImages = useCallback(async () => {
-    const imgs = await window.flowcode?.dialog?.pickImages();
+    const imgs = await window.flowade?.dialog?.pickImages();
     if (imgs?.length) setAttachedImages((prev) => [...prev, ...imgs]);
   }, []);
 
@@ -532,13 +532,13 @@ export default function TerminalPane({
     const pasteHandler = (e) => {
       e.preventDefault();
       const text = e.clipboardData?.getData('text');
-      if (text) window.flowcode?.terminal.write(id, text);
+      if (text) window.flowade?.terminal.write(id, text);
     };
     termEl.addEventListener('paste', pasteHandler);
 
     (async () => {
       try {
-        const info = await window.flowcode.terminal.spawn({
+        const info = await window.flowade.terminal.spawn({
           id,
           cols: term.cols,
           rows: term.rows,
@@ -551,7 +551,7 @@ export default function TerminalPane({
           term.write(info.scrollback);
         }
 
-        unsubDataRef.current = window.flowcode.terminal.onData((termId, data) => {
+        unsubDataRef.current = window.flowade.terminal.onData((termId, data) => {
           if (termId !== id) return;
           term.write(data);
           outputBufRef.current += data;
@@ -572,7 +572,7 @@ export default function TerminalPane({
           // Token usage tracking
           const tokenUsage = parseTokenUsage(data);
           if (tokenUsage) {
-            window.flowcode?.cost?.track({
+            window.flowade?.cost?.track({
               input: tokenUsage.input, output: tokenUsage.output,
               model: provider === 'claude' ? 'claude-sonnet-4-6' : provider,
               terminalId: id,
@@ -584,7 +584,7 @@ export default function TerminalPane({
           if (detectedUrl) {
             setPreviewUrl((prev) => {
               if (prev !== detectedUrl) {
-                window.dispatchEvent(new CustomEvent('flowcode:openInBrowser', { detail: { url: detectedUrl, terminalId: id } }));
+                window.dispatchEvent(new CustomEvent('flowade:openInBrowser', { detail: { url: detectedUrl, terminalId: id } }));
               }
               return prev !== detectedUrl ? detectedUrl : prev;
             });
@@ -596,7 +596,7 @@ export default function TerminalPane({
             if (isDangerousRef.current && options) {
               const approve = options.find((o) => o.value === 'a') || options.find((o) => o.value === 'y');
               if (approve) {
-                window.flowcode.terminal.write(id, approve.value);
+                window.flowade.terminal.write(id, approve.value);
                 outputBufRef.current = '';
                 setTermOptions(null);
                 return;
@@ -606,7 +606,7 @@ export default function TerminalPane({
           }, 400);
         });
 
-        unsubExitRef.current = window.flowcode.terminal.onExit((termId, exitCode) => {
+        unsubExitRef.current = window.flowade.terminal.onExit((termId, exitCode) => {
           if (termId !== id) return;
           setStatus('disconnected');
           term.writeln(`\r\n\x1b[33m[Session ended — code ${exitCode}]\x1b[0m`);
@@ -617,7 +617,7 @@ export default function TerminalPane({
         if (!info.existing) {
           const provDef = PROVIDERS.find((p) => p.id === provider);
           if (provDef?.command) {
-            setTimeout(() => window.flowcode.terminal.write(id, provDef.command + '\r'), 500);
+            setTimeout(() => window.flowade.terminal.write(id, provDef.command + '\r'), 500);
           }
         }
       } catch (err) {
@@ -627,13 +627,13 @@ export default function TerminalPane({
     })();
 
     term.onData((data) => {
-      window.flowcode?.terminal.write(id, data);
+      window.flowade?.terminal.write(id, data);
       setTermOptions(null);
       outputBufRef.current = '';
     });
 
     term.onResize(({ cols, rows }) => {
-      window.flowcode?.terminal.resize(id, cols, rows);
+      window.flowade?.terminal.resize(id, cols, rows);
     });
 
     const ro = new ResizeObserver(() => { try { fit.fit(); } catch {} });
@@ -887,8 +887,8 @@ export default function TerminalPane({
                 {listening ? 'Stop voice' : 'Voice input'}
               </button>
 
-              {window.flowcode?.window?.popout && (
-                <button onClick={() => { window.flowcode.window.popout(id); setMoreMenuOpen(false); }} style={{
+              {window.flowade?.window?.popout && (
+                <button onClick={() => { window.flowade.window.popout(id); setMoreMenuOpen(false); }} style={{
                   all: 'unset', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8,
                   width: '100%', padding: '6px 10px', borderRadius: 4, fontSize: 11, fontFamily: fb,
                   color: colors.text.secondary, transition: 'background .1s', boxSizing: 'border-box',
@@ -952,7 +952,7 @@ export default function TerminalPane({
               url={previewUrl}
               onClose={() => setShowPreview(false)}
               onPopout={(popUrl) => {
-                window.dispatchEvent(new CustomEvent('flowcode:previewPopout', {
+                window.dispatchEvent(new CustomEvent('flowade:previewPopout', {
                   detail: { url: popUrl, terminalId: id },
                 }));
               }}

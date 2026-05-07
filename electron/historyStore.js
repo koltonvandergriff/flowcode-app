@@ -6,7 +6,7 @@ const MAX_SESSIONS = 100;
 
 export class HistoryStore {
   constructor() {
-    this.dataDir = join(app.getPath('userData'), 'flowcode-data', 'history');
+    this.dataDir = join(app.getPath('userData'), 'flowade-data', 'history');
     this.ensureDir();
   }
 

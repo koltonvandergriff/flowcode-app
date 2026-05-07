@@ -262,7 +262,7 @@ function StepWelcome({ onNext }) {
           fontSize: 24, fontWeight: 700, color: colors.text.primary,
           fontFamily: FONTS.display, margin: 0, letterSpacing: 2,
         }}>
-          Welcome to FlowCode
+          Welcome to FlowADE
         </h1>
         <p style={{
           fontSize: 14, color: colors.text.muted, fontFamily: FONTS.body,
@@ -296,11 +296,11 @@ function StepApiKeys({ onNext, onBack }) {
   const handleNext = useCallback(async () => {
     setSaving(true);
     try {
-      if (openaiKey.trim() && window.flowcode?.env?.set) {
-        await window.flowcode.env.set('OPENAI_API_KEY', openaiKey.trim());
+      if (openaiKey.trim() && window.flowade?.env?.set) {
+        await window.flowade.env.set('OPENAI_API_KEY', openaiKey.trim());
       }
-      if (anthropicKey.trim() && window.flowcode?.env?.set) {
-        await window.flowcode.env.set('ANTHROPIC_API_KEY', anthropicKey.trim());
+      if (anthropicKey.trim() && window.flowade?.env?.set) {
+        await window.flowade.env.set('ANTHROPIC_API_KEY', anthropicKey.trim());
       }
       setSaved(true);
       setTimeout(() => onNext(), 300);
@@ -404,8 +404,8 @@ function StepWorkspace({ onNext, onBack }) {
 
   const handlePickFolder = useCallback(async () => {
     try {
-      if (window.flowcode?.dialog?.pickFolder) {
-        const folder = await window.flowcode.dialog.pickFolder();
+      if (window.flowade?.dialog?.pickFolder) {
+        const folder = await window.flowade.dialog.pickFolder();
         if (folder) setCwd(folder);
       }
     } catch {
@@ -416,7 +416,7 @@ function StepWorkspace({ onNext, onBack }) {
   const handleNext = useCallback(async () => {
     setSaving(true);
     try {
-      const set = window.flowcode?.settings?.set;
+      const set = window.flowade?.settings?.set;
       if (set) {
         await set('defaultShell', shell);
         if (cwd) await set('defaultCwd', cwd);
@@ -577,7 +577,7 @@ function StepTour({ onComplete, onBack }) {
           fontSize: 13, color: colors.text.muted, fontFamily: FONTS.body,
           margin: '8px 0 0', lineHeight: 1.5,
         }}>
-          Here's what you can do with FlowCode.
+          Here's what you can do with FlowADE.
         </p>
       </div>
 
@@ -657,7 +657,7 @@ export default function OnboardingWizard({ onComplete }) {
   }, [animating]);
 
   const handleComplete = useCallback(() => {
-    localStorage.setItem('flowcode_onboarding_complete', 'true');
+    localStorage.setItem('flowade_onboarding_complete', 'true');
     onComplete();
   }, [onComplete]);
 

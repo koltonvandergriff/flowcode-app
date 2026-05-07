@@ -135,7 +135,7 @@ export async function syncPreferences(prefs) {
   const { error } = await supabase.from('user_preferences').upsert({
     user_id: userId,
     theme: prefs.theme || 'dark',
-    palette: prefs.palette || 'flowcode',
+    palette: prefs.palette || 'flowade',
     font_size: prefs.fontSize || 14,
     default_shell: prefs.defaultShell || null,
     default_cwd: prefs.defaultCwd || null,

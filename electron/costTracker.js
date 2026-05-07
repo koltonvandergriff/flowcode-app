@@ -11,7 +11,7 @@ const COST_PER_MTK = {
 export class CostTracker {
   constructor(settingsStore) {
     this.settingsStore = settingsStore;
-    this.dataDir = join(app.getPath('userData'), 'flowcode-data');
+    this.dataDir = join(app.getPath('userData'), 'flowade-data');
     this.logFile = join(this.dataDir, 'cost_log.jsonl');
     this.sessionStart = Date.now();
     this.sessionTokens = { input: 0, output: 0 };

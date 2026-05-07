@@ -68,7 +68,7 @@ export default function LoginScreen({ onAuthenticated }) {
             <span style={s.logoLetter}>F</span>
           </div>
           <div style={s.brandText}>
-            <span style={s.appName}>FlowCode</span>
+            <span style={s.appName}>FlowADE</span>
           </div>
           <div style={s.tagline}>WORKSPACE</div>
         </div>
@@ -229,7 +229,7 @@ export default function LoginScreen({ onAuthenticated }) {
         </p>
 
         <div style={s.versionTag}>
-          <span>v{window.flowcode?.version || '0.1.0'}</span>
+          <span>v{window.flowade?.version || '0.1.0'}</span>
           <span style={{ margin: '0 6px', color: colors.text.ghost }}>|</span>
           <span>DutchMade Co.</span>
         </div>

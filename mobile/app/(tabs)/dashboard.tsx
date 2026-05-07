@@ -70,7 +70,7 @@ export default function DashboardScreen() {
             <View style={s.emptyCard}>
               <Ionicons name="desktop-outline" size={32} color={colors.text.dim} />
               <Text style={s.emptyText}>No workspaces synced yet</Text>
-              <Text style={s.emptySubtext}>Open FlowCode on your desktop to sync</Text>
+              <Text style={s.emptySubtext}>Open FlowADE on your desktop to sync</Text>
             </View>
           )}
           {workspaces.map(ws => (

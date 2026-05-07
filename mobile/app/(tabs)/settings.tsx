@@ -6,7 +6,7 @@ import { fetchPreferences, updatePreferences, subscribeToTable, UserPreferences 
 import { supabase } from '../../lib/supabase';
 
 const PALETTES = [
-  { id: 'flowcode', label: 'FlowCode', color: '#00d4ff' },
+  { id: 'flowade', label: 'FlowADE', color: '#00d4ff' },
   { id: 'aurora', label: 'Aurora', color: '#7c6aff' },
   { id: 'ember', label: 'Ember', color: '#f97316' },
   { id: 'abyss', label: 'Abyss', color: '#0ea5e9' },
@@ -22,7 +22,7 @@ const PALETTES = [
 
 const DEFAULT_PREFS: UserPreferences = {
   theme: 'dark',
-  palette: 'flowcode',
+  palette: 'flowade',
   font_size: 14,
   default_shell: 'bash',
   notify_builds: true,
@@ -61,7 +61,7 @@ export default function SettingsScreen() {
   }, [prefs]);
 
   const handleSignOut = useCallback(() => {
-    Alert.alert('Sign Out', 'Sign out of FlowCode?', [
+    Alert.alert('Sign Out', 'Sign out of FlowADE?', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Sign Out', style: 'destructive',
@@ -162,7 +162,7 @@ export default function SettingsScreen() {
         </TouchableOpacity>
       )}
 
-      <Text style={s.version}>FlowCode Mobile v1.0.0</Text>
+      <Text style={s.version}>FlowADE Mobile v1.0.0</Text>
     </ScrollView>
   );
 }

@@ -45,7 +45,7 @@ export default function TerminalGrid({ dangerFlags, onToggleDanger }) {
       setFocusedId(visible[(idx + 1) % visible.length].id);
     };
     const onInsertSnippet = (e) => {
-      window.dispatchEvent(new CustomEvent('flowcode:insertToTerminal', { detail: { terminalId: focusedId, text: e.detail } }));
+      window.dispatchEvent(new CustomEvent('flowade:insertToTerminal', { detail: { terminalId: focusedId, text: e.detail } }));
     };
     const onApplyRoom = (e) => {
       const room = e.detail;
@@ -61,19 +61,19 @@ export default function TerminalGrid({ dangerFlags, onToggleDanger }) {
       });
     };
 
-    window.addEventListener('flowcode:setLayout', onSetLayout);
-    window.addEventListener('flowcode:addTerminal', onAddTerminal);
-    window.addEventListener('flowcode:closeTerminal', onCloseTerminal);
-    window.addEventListener('flowcode:cycleFocus', onCycleFocus);
-    window.addEventListener('flowcode:insertSnippet', onInsertSnippet);
-    window.addEventListener('flowcode:applyRoom', onApplyRoom);
+    window.addEventListener('flowade:setLayout', onSetLayout);
+    window.addEventListener('flowade:addTerminal', onAddTerminal);
+    window.addEventListener('flowade:closeTerminal', onCloseTerminal);
+    window.addEventListener('flowade:cycleFocus', onCycleFocus);
+    window.addEventListener('flowade:insertSnippet', onInsertSnippet);
+    window.addEventListener('flowade:applyRoom', onApplyRoom);
     return () => {
-      window.removeEventListener('flowcode:setLayout', onSetLayout);
-      window.removeEventListener('flowcode:addTerminal', onAddTerminal);
-      window.removeEventListener('flowcode:closeTerminal', onCloseTerminal);
-      window.removeEventListener('flowcode:cycleFocus', onCycleFocus);
-      window.removeEventListener('flowcode:insertSnippet', onInsertSnippet);
-      window.removeEventListener('flowcode:applyRoom', onApplyRoom);
+      window.removeEventListener('flowade:setLayout', onSetLayout);
+      window.removeEventListener('flowade:addTerminal', onAddTerminal);
+      window.removeEventListener('flowade:closeTerminal', onCloseTerminal);
+      window.removeEventListener('flowade:cycleFocus', onCycleFocus);
+      window.removeEventListener('flowade:insertSnippet', onInsertSnippet);
+      window.removeEventListener('flowade:applyRoom', onApplyRoom);
     };
   }, [focusedId, visible, updateWorkspace, settings]);
 
@@ -93,7 +93,7 @@ export default function TerminalGrid({ dangerFlags, onToggleDanger }) {
   }, [terminals, updateWorkspace, settings]);
 
   const removeTerminal = useCallback((id) => {
-    window.flowcode?.terminal.kill(id);
+    window.flowade?.terminal.kill(id);
     updateWorkspace((prev) => ({
       ...prev,
       terminals: (prev.terminals || []).filter((t) => t.id !== id),

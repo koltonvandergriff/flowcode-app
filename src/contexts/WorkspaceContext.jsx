@@ -4,7 +4,7 @@ import { syncWorkspaceDebounced, deleteWorkspaceSync, setActiveWorkspaceSync } f
 
 export const WorkspaceContext = createContext(null);
 
-const api = typeof window !== 'undefined' && window.flowcode?.workspace;
+const api = typeof window !== 'undefined' && window.flowade?.workspace;
 
 function makeDefaultWorkspace(name = 'Default') {
   return {

@@ -1,5 +1,5 @@
 /**
- * FlowCode Auth Service
+ * FlowADE Auth Service
  *
  * Abstraction layer for authentication. Uses Supabase when configured
  * (VITE_SUPABASE_URL + VITE_SUPABASE_ANON_KEY), otherwise falls back
@@ -8,8 +8,8 @@
 
 import { supabase } from './supabase';
 
-const AUTH_TOKEN_KEY = 'flowcode_auth_token';
-const AUTH_USER_KEY = 'flowcode_auth_user';
+const AUTH_TOKEN_KEY = 'flowade_auth_token';
+const AUTH_USER_KEY = 'flowade_auth_user';
 
 // ---------------------------------------------------------------------------
 // Mock helpers (used when Supabase is not configured)

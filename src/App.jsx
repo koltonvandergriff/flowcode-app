@@ -158,7 +158,7 @@ function AppInner({ onLogout }) {
   // Persistent layout state
   const loadLayout = () => {
     try {
-      const raw = localStorage.getItem('flowcode_layout');
+      const raw = localStorage.getItem('flowade_layout');
       return raw ? JSON.parse(raw) : {};
     } catch { return {}; }
   };
@@ -211,7 +211,7 @@ function AppInner({ onLogout }) {
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      localStorage.setItem('flowcode_layout', JSON.stringify({
+      localStorage.setItem('flowade_layout', JSON.stringify({
         activeLeftPanel, leftPanelWidth, browserOpen, browserWidth, rightPanelOpen, rightTab,
       }));
     }, 300);
@@ -219,11 +219,11 @@ function AppInner({ onLogout }) {
   }, [activeLeftPanel, leftPanelWidth, browserOpen, browserWidth, rightPanelOpen, rightTab]);
 
   const shortcutActions = useMemo(() => ({
-    addTerminal: () => window.dispatchEvent(new Event('flowcode:addTerminal')),
-    closeTerminal: () => window.dispatchEvent(new Event('flowcode:closeTerminal')),
-    setLayout: (id) => window.dispatchEvent(new CustomEvent('flowcode:setLayout', { detail: id })),
+    addTerminal: () => window.dispatchEvent(new Event('flowade:addTerminal')),
+    closeTerminal: () => window.dispatchEvent(new Event('flowade:closeTerminal')),
+    setLayout: (id) => window.dispatchEvent(new CustomEvent('flowade:setLayout', { detail: id })),
     toggleDanger: () => setDangerFlags((prev) => ({ ...prev, global: !prev.global })),
-    cycleFocus: () => window.dispatchEvent(new Event('flowcode:cycleFocus')),
+    cycleFocus: () => window.dispatchEvent(new Event('flowade:cycleFocus')),
     openSettings: () => setSettingsOpen(true),
     commandPalette: () => setCmdPaletteOpen((o) => !o),
     toggleSidebar: () => setActiveLeftPanel((p) => p ? null : 'tasks'),
@@ -246,9 +246,9 @@ function AppInner({ onLogout }) {
 
   const cmdActions = useMemo(() => {
     const actions = [
-      { id: 'add-terminal', label: 'New Terminal', category: 'Terminals', shortcut: 'Ctrl+T', onAction: () => window.dispatchEvent(new Event('flowcode:addTerminal')) },
-      { id: 'close-terminal', label: 'Close Terminal', category: 'Terminals', shortcut: 'Ctrl+W', onAction: () => window.dispatchEvent(new Event('flowcode:closeTerminal')) },
-      { id: 'cycle-focus', label: 'Cycle Focus', category: 'Terminals', shortcut: 'Ctrl+Tab', onAction: () => window.dispatchEvent(new Event('flowcode:cycleFocus')) },
+      { id: 'add-terminal', label: 'New Terminal', category: 'Terminals', shortcut: 'Ctrl+T', onAction: () => window.dispatchEvent(new Event('flowade:addTerminal')) },
+      { id: 'close-terminal', label: 'Close Terminal', category: 'Terminals', shortcut: 'Ctrl+W', onAction: () => window.dispatchEvent(new Event('flowade:closeTerminal')) },
+      { id: 'cycle-focus', label: 'Cycle Focus', category: 'Terminals', shortcut: 'Ctrl+Tab', onAction: () => window.dispatchEvent(new Event('flowade:cycleFocus')) },
       { id: 'settings', label: 'Open Settings', category: 'Navigation', shortcut: 'Ctrl+,', onAction: () => setSettingsOpen(true) },
       { id: 'analytics', label: 'Reports & Analytics', category: 'Navigation', onAction: () => setAnalyticsOpen(true) },
       { id: 'help', label: 'Help Guide', category: 'Navigation', onAction: () => setHelpOpen(true) },
@@ -274,12 +274,12 @@ function AppInner({ onLogout }) {
       { id: '4x2', label: '4x2' }, { id: '3x3', label: '3x3' }, { id: '4x4', label: '4x4' },
     ];
     LAYOUTS.forEach((l) => {
-      actions.push({ id: `layout-${l.id}`, label: `Layout: ${l.label}`, category: 'Layout', onAction: () => window.dispatchEvent(new CustomEvent('flowcode:setLayout', { detail: l.id })) });
+      actions.push({ id: `layout-${l.id}`, label: `Layout: ${l.label}`, category: 'Layout', onAction: () => window.dispatchEvent(new CustomEvent('flowade:setLayout', { detail: l.id })) });
     });
 
     // Room actions
     WORKSPACE_ROOMS.forEach((room) => {
-      actions.push({ id: `room-${room.id}`, label: `Room: ${room.name}`, category: 'Rooms', onAction: () => window.dispatchEvent(new CustomEvent('flowcode:applyRoom', { detail: room })) });
+      actions.push({ id: `room-${room.id}`, label: `Room: ${room.name}`, category: 'Rooms', onAction: () => window.dispatchEvent(new CustomEvent('flowade:applyRoom', { detail: room })) });
     });
 
     // Palette actions
@@ -291,13 +291,13 @@ function AppInner({ onLogout }) {
   }, [setPalette]);
 
   const handleInsertSnippet = useCallback((text) => {
-    window.dispatchEvent(new CustomEvent('flowcode:insertSnippet', { detail: text }));
+    window.dispatchEvent(new CustomEvent('flowade:insertSnippet', { detail: text }));
   }, []);
 
   useEffect(() => {
     const handler = () => setBrowserOpen(true);
-    window.addEventListener('flowcode:openInBrowser', handler);
-    return () => window.removeEventListener('flowcode:openInBrowser', handler);
+    window.addEventListener('flowade:openInBrowser', handler);
+    return () => window.removeEventListener('flowade:openInBrowser', handler);
   }, []);
 
   return (
@@ -432,7 +432,7 @@ function AppInner({ onLogout }) {
           position: 'relative', zIndex: 1, gap: 16, height: 22,
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <span>FlowCode v0.1.0</span>
+            <span>FlowADE v0.1.0</span>
             {focusedCwd && (
               <span style={{ display: 'flex', alignItems: 'center', gap: 4, color: colors.text.dim }}>
                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -478,21 +478,21 @@ function AuthGate() {
   const [authed, setAuthed] = useState(false);
   const [authChecked, setAuthChecked] = useState(false);
   const [onboarded, setOnboarded] = useState(
-    () => localStorage.getItem('flowcode_onboarding_complete') === 'true'
+    () => localStorage.getItem('flowade_onboarding_complete') === 'true'
   );
   const [planSelected, setPlanSelected] = useState(
-    () => localStorage.getItem('flowcode_plan_selected') === 'true'
+    () => localStorage.getItem('flowade_plan_selected') === 'true'
   );
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get('fresh') === '1') {
-      localStorage.removeItem('flowcode_auth_token');
-      localStorage.removeItem('flowcode_auth_user');
-      sessionStorage.removeItem('flowcode_auth_token');
-      sessionStorage.removeItem('flowcode_auth_user');
-      localStorage.removeItem('flowcode_onboarding_complete');
-      localStorage.removeItem('flowcode_plan_selected');
+      localStorage.removeItem('flowade_auth_token');
+      localStorage.removeItem('flowade_auth_user');
+      sessionStorage.removeItem('flowade_auth_token');
+      sessionStorage.removeItem('flowade_auth_user');
+      localStorage.removeItem('flowade_onboarding_complete');
+      localStorage.removeItem('flowade_plan_selected');
       setOnboarded(false);
       setPlanSelected(false);
     }
@@ -529,7 +529,7 @@ function AuthGate() {
 }
 
 function PopoutPanel() {
-  const panel = window.flowcode?.window?.getPopoutPanel?.();
+  const panel = window.flowade?.window?.getPopoutPanel?.();
 
   return (
     <SettingsProvider>
@@ -545,8 +545,8 @@ function PopoutPanel() {
 }
 
 export default function App() {
-  if (window.flowcode?.window?.isPopout?.()) {
-    const panel = window.flowcode?.window?.getPopoutPanel?.();
+  if (window.flowade?.window?.isPopout?.()) {
+    const panel = window.flowade?.window?.getPopoutPanel?.();
     if (panel) return <PopoutPanel />;
     return <PopoutTerminal />;
   }

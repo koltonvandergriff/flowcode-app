@@ -1,4 +1,4 @@
-const STORAGE_KEY = 'flowcode_keybinding_overrides';
+const STORAGE_KEY = 'flowade_keybinding_overrides';
 
 export const DEFAULT_KEYBINDINGS = [
   { id: 'addTerminal',   label: 'New Terminal',     defaultKey: 'Ctrl+T',       category: 'Terminal' },

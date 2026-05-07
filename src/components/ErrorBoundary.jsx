@@ -15,8 +15,8 @@ export default class ErrorBoundary extends Component {
     const stack = error?.stack || '';
     const componentStack = errorInfo?.componentStack || '';
 
-    if (window.flowcode?.crash?.log) {
-      window.flowcode.crash.log('error', message, { stack, componentStack });
+    if (window.flowade?.crash?.log) {
+      window.flowade.crash.log('error', message, { stack, componentStack });
     } else {
       console.error(`[ErrorBoundary:${this.props.name}]`, message, { stack, componentStack });
     }

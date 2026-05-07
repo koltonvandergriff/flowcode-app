@@ -3,7 +3,7 @@ import { syncPreferencesDebounced } from '../lib/syncService';
 
 export const SettingsContext = createContext(null);
 
-const api = typeof window !== 'undefined' && window.flowcode?.settings;
+const api = typeof window !== 'undefined' && window.flowade?.settings;
 
 export function SettingsProvider({ children }) {
   const [settings, setSettings] = useState({

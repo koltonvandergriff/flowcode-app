@@ -4,7 +4,7 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 
 export class EnvStore {
   constructor() {
-    const dataDir = join(app.getPath('userData'), 'flowcode-data');
+    const dataDir = join(app.getPath('userData'), 'flowade-data');
     if (!existsSync(dataDir)) mkdirSync(dataDir, { recursive: true });
     this.filePath = join(dataDir, '.env');
     this.cache = this._load();
@@ -33,7 +33,7 @@ export class EnvStore {
   }
 
   _save() {
-    const lines = ['# FlowCode local credentials — stored on this machine only', ''];
+    const lines = ['# FlowADE local credentials — stored on this machine only', ''];
     const sections = {
       'AI Providers': ['OPENAI_API_KEY', 'ANTHROPIC_API_KEY', 'OPENCLAW_API_KEY'],
       'GitHub': ['GITHUB_PAT', 'GITHUB_DEFAULT_ORG', 'GITHUB_DEFAULT_REPO'],

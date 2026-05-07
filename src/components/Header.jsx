@@ -31,7 +31,7 @@ function MenuItem({ icon, label, onClick, colors, accent }) {
 
 export default function Header({ onOpenSettings, onOpenHelp, onOpenFeedback, onOpenHistory, onOpenSubscription, onOpenKeybindings, onOpenPlugins, onOpenAnalytics, onOpenNotifications, onOpenPrompts, onOpenCommands }) {
   const { colors, themeName, toggleTheme } = useTheme();
-  const isElectron = !!window.flowcode?.window;
+  const isElectron = !!window.flowade?.window;
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef(null);
 
@@ -76,7 +76,7 @@ export default function Header({ onOpenSettings, onOpenHelp, onOpenFeedback, onO
         }}>F</div>
         <div>
           <div style={{ fontSize: 13, fontWeight: 700, color: colors.text.primary, fontFamily: orb, letterSpacing: 1.2 }}>
-            FlowCode
+            FlowADE
           </div>
         </div>
       </div>
@@ -157,19 +157,19 @@ export default function Header({ onOpenSettings, onOpenHelp, onOpenFeedback, onO
 
         {/* Version */}
         <span style={{ fontSize: 9, color: colors.text.ghost, fontFamily: fc, marginLeft: 2 }}>
-          v{window.flowcode?.version || '0.1.0'}
+          v{window.flowade?.version || '0.1.0'}
         </span>
 
         {/* Electron window controls */}
         {isElectron && (
           <div style={{ display: 'flex', gap: 2, marginLeft: 6 }}>
-            <button onClick={() => window.flowcode.window.minimize()} style={btnStyle}>
+            <button onClick={() => window.flowade.window.minimize()} style={btnStyle}>
               <svg width="10" height="10" viewBox="0 0 10 10"><line x1="1" y1="5" x2="9" y2="5" stroke={colors.text.dim} strokeWidth="1.5" /></svg>
             </button>
-            <button onClick={() => window.flowcode.window.maximize()} style={btnStyle}>
+            <button onClick={() => window.flowade.window.maximize()} style={btnStyle}>
               <svg width="10" height="10" viewBox="0 0 10 10"><rect x="1" y="1" width="8" height="8" fill="none" stroke={colors.text.dim} strokeWidth="1.5" /></svg>
             </button>
-            <button onClick={() => window.flowcode.window.close()} style={btnStyle}
+            <button onClick={() => window.flowade.window.close()} style={btnStyle}
               onMouseEnter={(e) => { e.currentTarget.style.background = colors.status.error + '30'; }}
               onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
             >

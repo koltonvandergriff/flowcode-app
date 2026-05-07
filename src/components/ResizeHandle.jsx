@@ -29,7 +29,7 @@ export default function ResizeHandle({ direction = 'vertical', onResize }) {
       document.body.style.cursor = '';
       document.removeEventListener('mousemove', handleMove);
       document.removeEventListener('mouseup', handleUp);
-      window.dispatchEvent(new Event('flowcode:relayout'));
+      window.dispatchEvent(new Event('flowade:relayout'));
     };
 
     document.addEventListener('mousemove', handleMove);

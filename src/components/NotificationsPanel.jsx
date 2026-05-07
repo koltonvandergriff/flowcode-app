@@ -46,11 +46,11 @@ export default function NotificationsPanel({ open, onClose }) {
     loadTokens();
     loadEvents();
 
-    const unsub = window.flowcode?.notify?.onEvent((event) => {
+    const unsub = window.flowade?.notify?.onEvent((event) => {
       const updated = [event, ...eventsRef.current].slice(0, 200);
       setEvents(updated);
       eventsRef.current = updated;
-      localStorage.setItem('flowcode_notifications', JSON.stringify(updated));
+      localStorage.setItem('flowade_notifications', JSON.stringify(updated));
       syncActivityEvent(event);
     });
 
@@ -58,31 +58,31 @@ export default function NotificationsPanel({ open, onClose }) {
   }, []);
 
   const loadTokens = async () => {
-    const t = await window.flowcode?.notify?.getTokens() || [];
+    const t = await window.flowade?.notify?.getTokens() || [];
     setTokens(Array.isArray(t) ? t : []);
   };
 
   const loadEvents = () => {
     try {
-      const raw = localStorage.getItem('flowcode_notifications');
+      const raw = localStorage.getItem('flowade_notifications');
       if (raw) setEvents(JSON.parse(raw));
     } catch {}
   };
 
   const removeToken = async (token) => {
-    await window.flowcode?.notify?.removeToken(token);
+    await window.flowade?.notify?.removeToken(token);
     loadTokens();
   };
 
   const toggleNotify = async () => {
     const next = !notifyEnabled;
     setNotifyEnabled(next);
-    await window.flowcode?.notify?.setEnabled(next);
+    await window.flowade?.notify?.setEnabled(next);
   };
 
   const clearEvents = () => {
     setEvents([]);
-    localStorage.removeItem('flowcode_notifications');
+    localStorage.removeItem('flowade_notifications');
   };
 
   const formatTime = (ts) => {
@@ -233,7 +233,7 @@ export default function NotificationsPanel({ open, onClose }) {
                 background: colors.bg.surface, border: `1px solid ${colors.border.subtle}`,
                 fontSize: 11, color: colors.text.muted, fontFamily: fc, lineHeight: 1.5,
               }}>
-                Devices running the FlowCode mobile app automatically connect when you sign in
+                Devices running the FlowADE mobile app automatically connect when you sign in
                 with the same account. Notifications are pushed to all connected devices.
               </div>
 
@@ -255,7 +255,7 @@ export default function NotificationsPanel({ open, onClose }) {
                       No devices connected
                     </div>
                     <div style={{ fontSize: 10, color: colors.text.ghost, fontFamily: fc }}>
-                      Sign in on the FlowCode mobile app to connect
+                      Sign in on the FlowADE mobile app to connect
                     </div>
                   </div>
                 ) : (

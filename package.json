@@ -1,7 +1,7 @@
 {
-  "name": "flowcode",
+  "name": "flowade",
   "version": "0.1.0",
-  "description": "FlowCode — the desktop workspace for vibe coders",
+  "description": "FlowADE — the desktop workspace for vibe coders",
   "main": "electron/main.js",
   "author": "DutchMade Co.",
   "license": "MIT",
@@ -36,8 +36,8 @@
     "wait-on": "^8.0.3"
   },
   "build": {
-    "appId": "com.dutchmade.flowcode",
-    "productName": "FlowCode",
+    "appId": "com.dutchmade.flowade",
+    "productName": "FlowADE",
     "copyright": "Copyright (c) 2025 DutchMade Co.",
     "directories": {
       "output": "release"
@@ -57,7 +57,7 @@
     "publish": {
       "provider": "github",
       "owner": "dutchmade",
-      "repo": "flowcode",
+      "repo": "flowade",
       "releaseType": "release"
     },
     "win": {
@@ -71,7 +71,7 @@
       "perMachine": false,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "FlowCode",
+      "shortcutName": "FlowADE",
       "installerIcon": "public/icon.ico",
       "uninstallerIcon": "public/icon.ico",
       "installerHeaderIcon": "public/icon.ico",
@@ -118,7 +118,7 @@
       "category": "Development",
       "maintainer": "DutchMade Co.",
       "desktop": {
-        "StartupWMClass": "FlowCode"
+        "StartupWMClass": "FlowADE"
       }
     },
     "appImage": {
@@ -126,9 +126,9 @@
     },
     "fileAssociations": [
       {
-        "ext": "flowcode",
-        "name": "FlowCode Workspace",
-        "description": "FlowCode workspace file",
+        "ext": "flowade",
+        "name": "FlowADE Workspace",
+        "description": "FlowADE workspace file",
         "role": "Editor"
       }
     ]

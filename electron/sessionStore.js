@@ -4,7 +4,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync, unlink
 
 export class SessionStore {
   constructor() {
-    this.dataDir = join(app.getPath('userData'), 'flowcode-data');
+    this.dataDir = join(app.getPath('userData'), 'flowade-data');
     this.workspacesDir = join(this.dataDir, 'workspaces');
     this.stateFile = join(this.dataDir, 'session-state.json');
     this.windowFile = join(this.dataDir, 'window-bounds.json');

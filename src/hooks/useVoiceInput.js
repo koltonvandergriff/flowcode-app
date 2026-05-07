@@ -17,7 +17,7 @@ function encodeWAV(float32, sampleRate) {
 }
 
 async function transcribeWAV(wavBlob) {
-  const apiKey = await window.flowcode?.env.get('OPENAI_API_KEY');
+  const apiKey = await window.flowade?.env.get('OPENAI_API_KEY');
   if (!apiKey) return { text: null, error: 'no_key' };
 
   const formData = new FormData();

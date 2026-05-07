@@ -18,7 +18,7 @@ const STATUS_CYCLE = { todo: 'active', active: 'done', done: null };
 
 function loadTasks() {
   try {
-    const raw = window.flowcode?.store?.get?.(LS_KEY);
+    const raw = window.flowade?.store?.get?.(LS_KEY);
     if (raw) return JSON.parse(raw);
   } catch (_) { /* fall through */ }
   try {
@@ -31,12 +31,12 @@ function loadTasks() {
 function saveTasks(tasks) {
   const json = JSON.stringify(tasks);
   try {
-    window.flowcode?.store?.set?.(LS_KEY, json);
+    window.flowade?.store?.set?.(LS_KEY, json);
   } catch (_) { /* ignore */ }
   try {
     localStorage.setItem(LS_KEY, json);
   } catch (_) { /* ignore */ }
-  window.flowcode?.tasks?.save(tasks).catch(() => {});
+  window.flowade?.tasks?.save(tasks).catch(() => {});
 }
 
 function genId() {

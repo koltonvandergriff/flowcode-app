@@ -79,8 +79,8 @@ export default function SettingsPanel({ open, onClose, onLogout }) {
   const [ghTest, setGhTest] = useState(null);
 
   useEffect(() => {
-    if (open && window.flowcode?.env) {
-      window.flowcode.env.getAll().then((keys) => {
+    if (open && window.flowade?.env) {
+      window.flowade.env.getAll().then((keys) => {
         setEnvKeys(keys);
         setEnvDirty({});
       });
@@ -101,7 +101,7 @@ export default function SettingsPanel({ open, onClose, onLogout }) {
   };
 
   const saveEnvKey = async (key) => {
-    await window.flowcode?.env.set(key, envKeys[key] || '');
+    await window.flowade?.env.set(key, envKeys[key] || '');
     setEnvDirty((prev) => ({ ...prev, [key]: false }));
   };
 
@@ -111,7 +111,7 @@ export default function SettingsPanel({ open, onClose, onLogout }) {
       if (envDirty[key]) dirtyPairs[key] = envKeys[key] || '';
     }
     if (Object.keys(dirtyPairs).length > 0) {
-      await window.flowcode?.env.setMany(dirtyPairs);
+      await window.flowade?.env.setMany(dirtyPairs);
       setEnvDirty({});
     }
   };
@@ -218,7 +218,7 @@ export default function SettingsPanel({ open, onClose, onLogout }) {
                     onBlur={() => updateSetting('defaultCwd', cwdInput)}
                     placeholder="Leave empty for ~/Desktop/Claude" style={{ ...selectStyle, flex: 1, cursor: 'text' }} />
                   <button onClick={async () => {
-                    const folder = await window.flowcode?.dialog.pickFolder(cwdInput);
+                    const folder = await window.flowade?.dialog.pickFolder(cwdInput);
                     if (folder) { setCwdInput(folder); updateSetting('defaultCwd', folder); }
                   }} style={{
                     all: 'unset', cursor: 'pointer', padding: '8px 14px', borderRadius: 6,
