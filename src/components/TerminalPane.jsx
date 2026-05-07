@@ -427,6 +427,23 @@ export default function TerminalPane({
     window.flowade?.terminal.write(id, text);
   }, [id]);
 
+  const voiceBaseRef = useRef('');
+  const { listening, status: voiceStatus, toggle: toggleVoice } = useVoiceInput({
+    onInterim: (text) => {
+      if (isApiProvider) {
+        setInputVal(voiceBaseRef.current + (voiceBaseRef.current ? ' ' : '') + text);
+      }
+    },
+    onFinal: (text) => {
+      if (isApiProvider) {
+        voiceBaseRef.current = voiceBaseRef.current + (voiceBaseRef.current ? ' ' : '') + text;
+        setInputVal(voiceBaseRef.current);
+      } else {
+        sendToTerminal(text);
+      }
+    },
+  });
+
   const handleInputSend = useCallback(async () => {
     const text = inputVal.trim();
     if (!text && !attachedImages.length) return;
@@ -486,23 +503,6 @@ export default function TerminalPane({
     const imgs = await Promise.all(files.map(readFileAsDataUrl));
     setAttachedImages((prev) => [...prev, ...imgs]);
   }, []);
-
-  const voiceBaseRef = useRef('');
-  const { listening, status: voiceStatus, toggle: toggleVoice } = useVoiceInput({
-    onInterim: (text) => {
-      if (isApiProvider) {
-        setInputVal(voiceBaseRef.current + (voiceBaseRef.current ? ' ' : '') + text);
-      }
-    },
-    onFinal: (text) => {
-      if (isApiProvider) {
-        voiceBaseRef.current = voiceBaseRef.current + (voiceBaseRef.current ? ' ' : '') + text;
-        setInputVal(voiceBaseRef.current);
-      } else {
-        sendToTerminal(text);
-      }
-    },
-  });
 
   useEffect(() => {
     const handler = () => { if (!listening) voiceBaseRef.current = inputVal || ''; toggleVoice(); };

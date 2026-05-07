@@ -3,6 +3,8 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 const SpeechRecognition = typeof window !== 'undefined' &&
   (window.SpeechRecognition || window.webkitSpeechRecognition);
 
+const isElectron = typeof window !== 'undefined' && !!window.flowade;
+
 function encodeWAV(float32, sampleRate) {
   const buffer = new ArrayBuffer(44 + float32.length * 2);
   const view = new DataView(buffer);
@@ -56,6 +58,7 @@ export function useVoiceInput({ onInterim, onFinal }) {
   const chunksRef = useRef([]);
   const silenceTimerRef = useRef(null);
   const busyRef = useRef(false);
+  const startWhisperRef = useRef(null);
 
   onInterimRef.current = onInterim;
   onFinalRef.current = onFinal;
@@ -141,14 +144,23 @@ export function useVoiceInput({ onInterim, onFinal }) {
       recognition.onerror = (event) => {
         if (event.error === 'not-allowed') {
           setStatus('Mic permission denied');
-        } else if (event.error === 'no-speech') {
-          setStatus('No speech detected');
-        } else {
-          setStatus(`Speech error: ${event.error}`);
+          return;
         }
+        if (event.error === 'no-speech') {
+          setStatus('No speech detected');
+          return;
+        }
+        if (event.error === 'network' || event.error === 'service-not-allowed' || event.error === 'audio-capture') {
+          try { recognition.abort(); } catch {}
+          recognitionRef.current = null;
+          if (wantActiveRef.current) startWhisperRef.current?.();
+          return;
+        }
+        setStatus(`Speech error: ${event.error}`);
       };
 
       recognition.onend = () => {
+        if (recognitionRef.current !== recognition) return;
         if (wantActiveRef.current) {
           try { recognition.start(); } catch {}
         } else {
@@ -207,9 +219,11 @@ export function useVoiceInput({ onInterim, onFinal }) {
     }
   }, [sendChunks]);
 
+  startWhisperRef.current = startWhisper;
+
   const start = useCallback(async () => {
     wantActiveRef.current = true;
-    if (!startSpeechRecognition()) {
+    if (isElectron || !startSpeechRecognition()) {
       await startWhisper();
     }
   }, [startSpeechRecognition, startWhisper]);
