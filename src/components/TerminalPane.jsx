@@ -445,8 +445,9 @@ export default function TerminalPane({
     }
     setInputVal('');
     setAttachedImages([]);
+    if (listening) { toggleVoice(); voiceBaseRef.current = ''; }
     inputRef.current?.focus();
-  }, [inputVal, attachedImages, sendToTerminal, isApiProvider, id]);
+  }, [inputVal, attachedImages, sendToTerminal, isApiProvider, id, listening, toggleVoice]);
 
   const pickFolder = useCallback(async () => {
     const folder = await window.flowade?.dialog.pickFolder(currentCwd);
