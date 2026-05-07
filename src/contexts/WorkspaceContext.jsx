@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { ToastContext } from './ToastContext';
+import { syncWorkspaceDebounced, deleteWorkspaceSync, setActiveWorkspaceSync } from '../lib/syncService';
 
 export const WorkspaceContext = createContext(null);
 
@@ -59,6 +60,7 @@ export function WorkspaceProvider({ children }) {
     if (!api) return;
     const ws = await api.create(name);
     await refresh();
+    syncWorkspaceDebounced(ws);
     addToast(`Workspace "${name}" created`, 'success');
     return ws;
   }, [refresh, addToast]);
@@ -73,6 +75,7 @@ export function WorkspaceProvider({ children }) {
       setActiveId(id);
       setActiveData(data);
       await api.setActive(id);
+      setActiveWorkspaceSync(id);
     }
   }, [activeId, activeData]);
 
@@ -80,6 +83,7 @@ export function WorkspaceProvider({ children }) {
     setActiveData((prev) => {
       const next = typeof updater === 'function' ? updater(prev) : { ...prev, ...updater };
       if (api && activeId) api.save(activeId, next).catch(() => {});
+      syncWorkspaceDebounced({ ...next, isActive: true });
       return next;
     });
   }, [activeId]);
@@ -87,6 +91,7 @@ export function WorkspaceProvider({ children }) {
   const deleteWorkspace = useCallback(async (id) => {
     if (!api) return;
     await api.delete(id);
+    deleteWorkspaceSync(id);
     await refresh();
     if (id === activeId) {
       const list = await api.list();

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useTheme } from '../hooks/useTheme';
+import { syncAllTasks } from '../lib/syncService';
 
 const FONT_UI = "'Outfit', sans-serif";
 const FONT_MONO = "'JetBrains Mono', 'Cascadia Code', monospace";
@@ -49,9 +50,9 @@ export default function TaskBoard({ open, onToggle }) {
   const [dragId, setDragId] = useState(null);
   const inputRef = useRef(null);
 
-  // Persist on every change
   useEffect(() => {
     saveTasks(tasks);
+    syncAllTasks(tasks.filter(t => t.status));
   }, [tasks]);
 
   const addTask = useCallback(() => {

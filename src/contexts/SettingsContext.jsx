@@ -1,4 +1,5 @@
 import { createContext, useCallback, useEffect, useState } from 'react';
+import { syncPreferencesDebounced } from '../lib/syncService';
 
 export const SettingsContext = createContext(null);
 
@@ -17,7 +18,11 @@ export function SettingsProvider({ children }) {
   }, []);
 
   const updateSetting = useCallback(async (key, value) => {
-    setSettings((prev) => ({ ...prev, [key]: value }));
+    setSettings((prev) => {
+      const next = { ...prev, [key]: value };
+      syncPreferencesDebounced(next);
+      return next;
+    });
     await api?.set(key, value);
   }, []);
 

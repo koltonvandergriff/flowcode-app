@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { FONTS } from '../lib/constants';
 import { useTheme } from '../hooks/useTheme';
+import { syncActivityEvent } from '../lib/syncService';
 
 const fc = FONTS.mono;
 const fb = FONTS.body;
@@ -50,6 +51,7 @@ export default function NotificationsPanel({ open, onClose }) {
       setEvents(updated);
       eventsRef.current = updated;
       localStorage.setItem('flowcode_notifications', JSON.stringify(updated));
+      syncActivityEvent(event);
     });
 
     return () => { unsub?.(); };
