@@ -14,6 +14,7 @@ export const DEFAULT_KEYBINDINGS = [
   { id: 'toggleSidebar',  label: 'Toggle Sidebar',    defaultKey: 'Ctrl+B',       category: 'Navigation' },
   { id: 'toggleBrowser',  label: 'Toggle Browser',    defaultKey: 'Ctrl+Shift+B', category: 'Navigation' },
   { id: 'toggleCode',     label: 'Toggle Code Editor', defaultKey: 'Ctrl+Shift+E', category: 'Navigation' },
+  { id: 'toggleVoice',    label: 'Toggle Voice Input', defaultKey: 'Ctrl+Shift+V', category: 'Terminal' },
 ];
 
 function loadOverrides() {

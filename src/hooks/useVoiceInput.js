@@ -1,5 +1,8 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 
+const SpeechRecognition = typeof window !== 'undefined' &&
+  (window.SpeechRecognition || window.webkitSpeechRecognition);
+
 function encodeWAV(float32, sampleRate) {
   const buffer = new ArrayBuffer(44 + float32.length * 2);
   const view = new DataView(buffer);
@@ -37,25 +40,33 @@ async function transcribeWAV(wavBlob) {
   }
 
   const data = await res.json();
-  const text = data.text?.trim();
-  return { text: text || null, error: null };
+  return { text: data.text?.trim() || null, error: null };
 }
 
-export function useVoiceInput(onTranscript) {
+export function useVoiceInput({ onInterim, onFinal }) {
   const [listening, setListening] = useState(false);
   const [status, setStatus] = useState('');
-  const [interim, setInterim] = useState('');
-  const [lastSent, setLastSent] = useState('');
+  const recognitionRef = useRef(null);
+  const onInterimRef = useRef(onInterim);
+  const onFinalRef = useRef(onFinal);
   const wantActiveRef = useRef(false);
   const streamRef = useRef(null);
   const contextRef = useRef(null);
   const processorRef = useRef(null);
   const chunksRef = useRef([]);
   const silenceTimerRef = useRef(null);
-  const speechDetectedRef = useRef(false);
   const busyRef = useRef(false);
-  const onTranscriptRef = useRef(onTranscript);
-  onTranscriptRef.current = onTranscript;
+
+  onInterimRef.current = onInterim;
+  onFinalRef.current = onFinal;
+
+  const stopWhisper = useCallback(() => {
+    if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+    if (processorRef.current) { processorRef.current.disconnect(); processorRef.current = null; }
+    if (contextRef.current) { contextRef.current.close().catch(() => {}); contextRef.current = null; }
+    if (streamRef.current) { streamRef.current.getTracks().forEach(t => t.stop()); streamRef.current = null; }
+    chunksRef.current = [];
+  }, []);
 
   const sendChunks = useCallback(async () => {
     if (chunksRef.current.length === 0 || busyRef.current) return;
@@ -75,26 +86,24 @@ export function useVoiceInput(onTranscript) {
       const { text, error } = await transcribeWAV(wav);
 
       if (error === 'no_key') {
-        setStatus('No OpenAI key — add one in Settings > API Keys');
+        setStatus('No OpenAI key — add in Settings > API Keys');
         busyRef.current = false;
         return;
       }
       if (error === 'invalid_key') {
-        setStatus('Invalid OpenAI key — check Settings > API Keys');
+        setStatus('Invalid OpenAI key');
         busyRef.current = false;
         return;
       }
       if (error) {
-        setStatus('Transcription failed — try again');
+        setStatus('Transcription failed');
         busyRef.current = false;
         return;
       }
 
       if (text) {
-        onTranscriptRef.current(text + '\r');
-        setLastSent(text);
-        setStatus('Sent');
-        setTimeout(() => { if (wantActiveRef.current) setStatus('Listening...'); }, 1500);
+        onFinalRef.current(text);
+        setStatus(wantActiveRef.current ? 'Listening...' : '');
       } else {
         setStatus(wantActiveRef.current ? 'Listening...' : '');
       }
@@ -102,10 +111,63 @@ export function useVoiceInput(onTranscript) {
       setStatus('Transcription failed');
     }
     busyRef.current = false;
-    setInterim('');
   }, []);
 
-  const start = useCallback(async () => {
+  const startSpeechRecognition = useCallback(() => {
+    if (!SpeechRecognition) return false;
+
+    try {
+      const recognition = new SpeechRecognition();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = 'en-US';
+
+      recognition.onresult = (event) => {
+        let interim = '';
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const transcript = event.results[i][0].transcript;
+          if (event.results[i].isFinal) {
+            onFinalRef.current(transcript);
+          } else {
+            interim += transcript;
+          }
+        }
+        if (interim) {
+          onInterimRef.current(interim);
+          setStatus('Hearing you...');
+        }
+      };
+
+      recognition.onerror = (event) => {
+        if (event.error === 'not-allowed') {
+          setStatus('Mic permission denied');
+        } else if (event.error === 'no-speech') {
+          setStatus('No speech detected');
+        } else {
+          setStatus(`Speech error: ${event.error}`);
+        }
+      };
+
+      recognition.onend = () => {
+        if (wantActiveRef.current) {
+          try { recognition.start(); } catch {}
+        } else {
+          setListening(false);
+          setStatus('');
+        }
+      };
+
+      recognition.start();
+      recognitionRef.current = recognition;
+      setListening(true);
+      setStatus('Listening...');
+      return true;
+    } catch {
+      return false;
+    }
+  }, []);
+
+  const startWhisper = useCallback(async () => {
     try {
       setStatus('Starting mic...');
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -126,14 +188,12 @@ export function useVoiceInput(onTranscript) {
         const data = e.inputBuffer.getChannelData(0);
         const rms = Math.sqrt(data.reduce((s, v) => s + v * v, 0) / data.length);
         if (rms > 0.01) {
-          speechDetectedRef.current = true;
           chunksRef.current.push(new Float32Array(data));
-          setStatus('Recording');
+          setStatus('Hearing you...');
           if (silenceTimerRef.current) { clearTimeout(silenceTimerRef.current); silenceTimerRef.current = null; }
-        } else if (speechDetectedRef.current && !silenceTimerRef.current) {
+        } else if (chunksRef.current.length > 0 && !silenceTimerRef.current) {
           silenceTimerRef.current = setTimeout(() => {
             silenceTimerRef.current = null;
-            speechDetectedRef.current = false;
             sendChunks();
           }, 1200);
         }
@@ -147,24 +207,31 @@ export function useVoiceInput(onTranscript) {
     }
   }, [sendChunks]);
 
+  const start = useCallback(async () => {
+    wantActiveRef.current = true;
+    if (!startSpeechRecognition()) {
+      await startWhisper();
+    }
+  }, [startSpeechRecognition, startWhisper]);
+
   const stop = useCallback(() => {
     wantActiveRef.current = false;
-    if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+    if (recognitionRef.current) {
+      recognitionRef.current.abort();
+      recognitionRef.current = null;
+    }
     if (chunksRef.current.length > 0) sendChunks();
-    if (processorRef.current) { processorRef.current.disconnect(); processorRef.current = null; }
-    if (contextRef.current) { contextRef.current.close().catch(() => {}); contextRef.current = null; }
-    if (streamRef.current) { streamRef.current.getTracks().forEach((t) => t.stop()); streamRef.current = null; }
+    stopWhisper();
     setListening(false);
-    setInterim('');
     setStatus('');
-  }, [sendChunks]);
+  }, [sendChunks, stopWhisper]);
 
   const toggle = useCallback(() => {
-    if (wantActiveRef.current) { stop(); }
-    else { wantActiveRef.current = true; start(); }
+    if (wantActiveRef.current) stop();
+    else start();
   }, [start, stop]);
 
   useEffect(() => () => { wantActiveRef.current = false; stop(); }, [stop]);
 
-  return { listening, interim, lastSent, status, toggle };
+  return { listening, status, toggle };
 }

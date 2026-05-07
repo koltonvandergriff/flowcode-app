@@ -229,6 +229,7 @@ function AppInner({ onLogout }) {
     toggleSidebar: () => setActiveLeftPanel((p) => p ? null : 'tasks'),
     toggleBrowser: () => setBrowserOpen((o) => !o),
     toggleCode: () => setActiveLeftPanel((p) => p === 'code' ? null : 'code'),
+    toggleVoice: () => window.dispatchEvent(new Event('flowade:toggleVoice')),
   }), []);
 
   useKeyboardShortcuts(shortcutActions);

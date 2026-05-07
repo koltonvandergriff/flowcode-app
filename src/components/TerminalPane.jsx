@@ -486,14 +486,28 @@ export default function TerminalPane({
     setAttachedImages((prev) => [...prev, ...imgs]);
   }, []);
 
-  const { listening, interim, lastSent, status: voiceStatus, toggle: toggleVoice } = useVoiceInput(
-    isApiProvider
-      ? (text) => {
-          // For API providers, voice input goes into the input field
-          setInputVal((prev) => prev ? prev + ' ' + text : text);
-        }
-      : sendToTerminal
-  );
+  const voiceBaseRef = useRef('');
+  const { listening, status: voiceStatus, toggle: toggleVoice } = useVoiceInput({
+    onInterim: (text) => {
+      if (isApiProvider) {
+        setInputVal(voiceBaseRef.current + (voiceBaseRef.current ? ' ' : '') + text);
+      }
+    },
+    onFinal: (text) => {
+      if (isApiProvider) {
+        voiceBaseRef.current = voiceBaseRef.current + (voiceBaseRef.current ? ' ' : '') + text;
+        setInputVal(voiceBaseRef.current);
+      } else {
+        sendToTerminal(text);
+      }
+    },
+  });
+
+  useEffect(() => {
+    const handler = () => { if (!listening) voiceBaseRef.current = inputVal || ''; toggleVoice(); };
+    window.addEventListener('flowade:toggleVoice', handler);
+    return () => window.removeEventListener('flowade:toggleVoice', handler);
+  }, [toggleVoice, listening, inputVal]);
 
   // ----- Terminal (PTY) setup — only for non-API providers -----
   useEffect(() => {
@@ -787,13 +801,6 @@ export default function TerminalPane({
           }}>DANGER</span>
         )}
 
-        {listening && (
-          <span style={{
-            width: 7, height: 7, borderRadius: '50%', background: colors.status.error,
-            animation: 'pulse 1s infinite', flexShrink: 0,
-          }} />
-        )}
-
         {!isApiProvider && previewUrl && (
           <button onClick={() => setShowPreview((v) => !v)} title={showPreview ? 'Hide preview' : 'Show preview'}
             style={{
@@ -806,6 +813,23 @@ export default function TerminalPane({
             </svg>
           </button>
         )}
+
+        {/* Voice input toggle */}
+        <button onClick={() => { if (!listening) voiceBaseRef.current = inputVal || ''; toggleVoice(); }}
+          title={listening ? 'Stop voice (Ctrl+Shift+V)' : 'Voice input (Ctrl+Shift+V)'}
+          style={{
+            all: 'unset', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            width: 22, height: 22, borderRadius: 4, position: 'relative',
+            color: listening ? colors.status.error : colors.text.dim, transition: 'all .15s',
+            background: listening ? colors.status.error + '15' : 'transparent',
+          }}
+          onMouseEnter={(e) => { if (!listening) e.currentTarget.style.color = colors.text.secondary; }}
+          onMouseLeave={(e) => { if (!listening) e.currentTarget.style.color = colors.text.dim; }}>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="9" y="1" width="6" height="11" rx="3" /><path d="M19 10v1a7 7 0 01-14 0v-1" /><line x1="12" y1="19" x2="12" y2="23" /><line x1="8" y1="23" x2="16" y2="23" />
+          </svg>
+          {listening && <span style={{ position: 'absolute', top: -1, right: -1, width: 6, height: 6, borderRadius: '50%', background: colors.status.error, animation: 'pulse 1s infinite' }} />}
+        </button>
 
         {/* More menu — secondary actions */}
         <div ref={moreMenuRef} style={{ position: 'relative' }}>
@@ -876,17 +900,6 @@ export default function TerminalPane({
                 {isDangerous ? 'Safe mode' : 'Danger mode'}
               </button>
 
-              <button onClick={() => { toggleVoice(); setMoreMenuOpen(false); }} style={{
-                all: 'unset', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8,
-                width: '100%', padding: '6px 10px', borderRadius: 4, fontSize: 11, fontFamily: fb,
-                color: listening ? colors.status.error : colors.text.secondary, transition: 'background .1s', boxSizing: 'border-box',
-              }}
-              onMouseEnter={(e) => { e.currentTarget.style.background = colors.bg.overlay; }}
-              onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="1" width="6" height="11" rx="3" /><path d="M19 10v1a7 7 0 01-14 0v-1" /><line x1="12" y1="19" x2="12" y2="23" /><line x1="8" y1="23" x2="16" y2="23" /></svg>
-                {listening ? 'Stop voice' : 'Voice input'}
-              </button>
-
               {window.flowade?.window?.popout && (
                 <button onClick={() => { window.flowade.window.popout(id); setMoreMenuOpen(false); }} style={{
                   all: 'unset', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8,
@@ -927,8 +940,6 @@ export default function TerminalPane({
           <span style={{ fontSize: 11, color: colors.text.dim, fontFamily: fc, fontStyle: 'italic' }}>
             {voiceStatus || 'Listening...'}
           </span>
-          {interim && <span style={{ fontSize: 11, color: colors.accent.purple, fontFamily: fc, marginLeft: 8 }}>"{interim}"</span>}
-          {lastSent && !interim && <span style={{ fontSize: 11, color: colors.text.ghost, fontFamily: fc, marginLeft: 8 }}>Sent: "{lastSent}"</span>}
         </div>
       )}
 

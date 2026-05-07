@@ -58,6 +58,9 @@ export function useKeyboardShortcuts(actions) {
           case 'toggleCode':
             actions.toggleCode?.();
             break;
+          case 'toggleVoice':
+            actions.toggleVoice?.();
+            break;
         }
 
         return; // Only one match per event
