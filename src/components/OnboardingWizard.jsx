@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import { FONTS } from '../lib/constants';
 import { useTheme } from '../hooks/useTheme';
+import flowadeLogo from '../../assets/flowade-logo-256.png';
 
 const STEP_COUNT = 4;
 const CARD_WIDTH = 530;
@@ -245,15 +246,10 @@ function StepWelcome({ onNext }) {
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 24, padding: '12px 0' }}>
       {/* Logo */}
       <div style={{
-        width: 64, height: 64, borderRadius: 16,
-        background: `linear-gradient(135deg, ${colors.accent.cyan}, ${colors.accent.blue})`,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        width: 72, height: 72, borderRadius: 16, overflow: 'hidden',
         boxShadow: `0 8px 32px ${colors.accent.cyan}35, 0 2px 8px rgba(0,0,0,0.3)`,
       }}>
-        <span style={{
-          fontSize: 28, fontWeight: 900, color: '#fff',
-          fontFamily: FONTS.display, lineHeight: 1,
-        }}>F</span>
+        <img src={flowadeLogo} alt="FlowADE" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
       </div>
 
       {/* Heading */}

@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { FONTS } from '../lib/constants';
 import { useTheme } from '../hooks/useTheme';
 import WorkspaceSwitcher from './WorkspaceSwitcher';
+import flowadeLogo from '../../assets/flowade-logo-256.png';
 
 const fc = FONTS.mono;
 const orb = FONTS.display;
@@ -67,13 +68,10 @@ export default function Header({ onOpenSettings, onOpenHelp, onOpenFeedback, onO
     }}>
       {/* Logo */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, WebkitAppRegion: 'no-drag' }}>
-        <div style={{
+        <img src={flowadeLogo} alt="FlowADE" style={{
           width: 26, height: 26, borderRadius: 7,
-          background: colors.gradient?.primary || `linear-gradient(135deg, ${colors.accent.pink}, ${colors.accent.purple})`,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 11, fontWeight: 900, color: '#fff', fontFamily: orb,
-          boxShadow: `0 2px 16px ${colors.accent.primary || colors.accent.purple}30`,
-        }}>F</div>
+          boxShadow: `0 2px 16px ${colors.accent.primary || colors.accent.cyan}30`,
+        }} />
         <div>
           <div style={{ fontSize: 13, fontWeight: 700, color: colors.text.primary, fontFamily: orb, letterSpacing: 1.2 }}>
             FlowADE

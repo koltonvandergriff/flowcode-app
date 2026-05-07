@@ -2,6 +2,7 @@ import { useState, useCallback, useMemo } from 'react';
 import { FONTS } from '../lib/constants';
 import { useTheme } from '../hooks/useTheme';
 import { login, signup, resetPassword } from '../lib/authService';
+import flowadeLogo from '../../assets/flowade-logo-256.png';
 
 const orb = FONTS.display;
 const mono = FONTS.mono;
@@ -65,7 +66,7 @@ export default function LoginScreen({ onAuthenticated }) {
       <div style={s.container}>
         <div style={s.logoSection}>
           <div style={s.logoBox}>
-            <span style={s.logoLetter}>F</span>
+            <img src={flowadeLogo} alt="FlowADE" style={s.logoImg} />
           </div>
           <div style={s.brandText}>
             <span style={s.appName}>FlowADE</span>
@@ -272,12 +273,11 @@ function buildStyles(c) {
     },
     logoSection: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 },
     logoBox: {
-      width: 56, height: 56, borderRadius: 14,
-      background: `linear-gradient(135deg, ${c.accent.cyan}, ${c.accent.blue})`,
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      width: 64, height: 64, borderRadius: 14,
+      overflow: 'hidden',
       boxShadow: `0 8px 32px ${c.accent.cyan}35, 0 2px 8px rgba(0,0,0,0.3)`,
     },
-    logoLetter: { fontSize: 24, fontWeight: 900, color: '#fff', fontFamily: orb, lineHeight: 1 },
+    logoImg: { width: '100%', height: '100%', objectFit: 'cover', display: 'block' },
     brandText: { display: 'flex', alignItems: 'center', gap: 0 },
     appName: { fontSize: 26, fontWeight: 700, color: c.text.primary, fontFamily: orb, letterSpacing: 2 },
     tagline: { fontSize: 10, color: c.text.dim, letterSpacing: 4, fontFamily: mono, marginTop: -2 },

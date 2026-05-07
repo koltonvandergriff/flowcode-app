@@ -22,7 +22,7 @@ export async function registerForPushNotifications(): Promise<string | null> {
       name: 'Terminal Events',
       importance: Notifications.AndroidImportance.HIGH,
       vibrationPattern: [0, 250, 250, 250],
-      lightColor: '#7c6aff',
+      lightColor: '#00d4ff',
     });
   }
 

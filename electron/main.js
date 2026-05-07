@@ -78,6 +78,7 @@ function createWindow() {
     minWidth: 800,
     minHeight: 600,
     title: 'FlowADE',
+    icon: join(__dirname, '..', 'public', 'icon.png'),
     backgroundColor: '#161729',
     show: false,
     frame: false,
@@ -640,7 +641,8 @@ ipcMain.handle('window:closePopout', (_, windowId) => {
 // --- System Tray ---
 
 function createTray() {
-  const icon = nativeImage.createEmpty();
+  const iconPath = join(__dirname, '..', 'public', 'icon.png');
+  const icon = nativeImage.createFromPath(iconPath).resize({ width: 16, height: 16 });
   tray = new Tray(icon);
   tray.setToolTip('FlowADE');
 
