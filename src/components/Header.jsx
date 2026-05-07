@@ -58,27 +58,25 @@ export default function Header({ onOpenSettings, onOpenHelp, onOpenFeedback, onO
   };
 
   return (
-    <header style={{
+    <header className="fc-glass" style={{
       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-      padding: '8px 20px', borderBottom: `1px solid ${colors.border.subtle}`,
-      background: colors.bg.surface, position: 'sticky', top: 0, zIndex: 10,
+      padding: '6px 16px', borderBottom: `1px solid ${colors.border.subtle}`,
+      background: colors.bg.glass || colors.bg.surface,
+      position: 'sticky', top: 0, zIndex: 10,
       WebkitAppRegion: 'drag',
     }}>
       {/* Logo */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, WebkitAppRegion: 'no-drag' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, WebkitAppRegion: 'no-drag' }}>
         <div style={{
-          width: 28, height: 28, borderRadius: 7,
-          background: `linear-gradient(135deg, ${colors.accent.pink}, ${colors.accent.purple}, ${colors.accent.green})`,
+          width: 26, height: 26, borderRadius: 7,
+          background: colors.gradient?.primary || `linear-gradient(135deg, ${colors.accent.pink}, ${colors.accent.purple})`,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 12, fontWeight: 900, color: '#fff', fontFamily: orb,
-          boxShadow: `0 2px 12px ${colors.accent.purple}25`,
+          fontSize: 11, fontWeight: 900, color: '#fff', fontFamily: orb,
+          boxShadow: `0 2px 16px ${colors.accent.primary || colors.accent.purple}30`,
         }}>F</div>
         <div>
-          <div style={{ fontSize: 14, fontWeight: 700, color: colors.text.primary, fontFamily: orb, letterSpacing: 0.8 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: colors.text.primary, fontFamily: orb, letterSpacing: 1.2 }}>
             FlowCode
-          </div>
-          <div style={{ fontSize: 8, color: colors.text.dim, letterSpacing: 2, fontFamily: fc, marginTop: 1 }}>
-            WORKSPACE
           </div>
         </div>
       </div>

@@ -43,6 +43,7 @@
     "files": [
       "dist/**/*",
       "electron/**/*",
+      "mcp-server/**/*",
       "package.json"
     ],
     "extraResources": [

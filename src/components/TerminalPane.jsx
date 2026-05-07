@@ -12,6 +12,7 @@ import { detectDevServerUrl } from '../lib/devServerDetector';
 import PreviewPane from './PreviewPane';
 
 const fc = FONTS.mono;
+const fb = FONTS.body;
 
 function parseTerminalOptions(raw) {
   const text = raw.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '').replace(/\r/g, '');
@@ -381,6 +382,8 @@ export default function TerminalPane({
   const [inputVal, setInputVal] = useState('');
   const [mode, setMode] = useState('usage');
   const [currentCwd, setCurrentCwd] = useState(cwd || null);
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
+  const moreMenuRef = useRef(null);
   const [previewUrl, setPreviewUrl] = useState(null);
   const [showPreview, setShowPreview] = useState(false);
   const [attachedImages, setAttachedImages] = useState([]);
@@ -397,6 +400,15 @@ export default function TerminalPane({
   const isApiProvider = !!providerDef?.apiProvider;
 
   useEffect(() => { isDangerousRef.current = isDangerous; }, [isDangerous]);
+
+  useEffect(() => {
+    if (!moreMenuOpen) return;
+    const close = (e) => {
+      if (moreMenuRef.current && !moreMenuRef.current.contains(e.target)) setMoreMenuOpen(false);
+    };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [moreMenuOpen]);
 
   useEffect(() => {
     if (cavemanInitRef.current) return;
@@ -511,7 +523,7 @@ export default function TerminalPane({
       const mod = event.ctrlKey || event.metaKey;
       if (mod && event.key === 'v') return false;
       if (mod && event.key === 'c' && term.hasSelection()) return false;
-      if (mod && ['t', 'w', '1', '2', '3', '4', ',', 'Tab'].includes(event.key)) return false;
+      if (mod && ['t', 'w', 'k', '1', '2', '3', '4', ',', 'Tab'].includes(event.key)) return false;
       if (mod && event.shiftKey && event.key === 'D') return false;
       return true;
     });
@@ -534,6 +546,10 @@ export default function TerminalPane({
         });
 
         if (!info) { setStatus('error'); return; }
+
+        if (info.existing && info.scrollback) {
+          term.write(info.scrollback);
+        }
 
         unsubDataRef.current = window.flowcode.terminal.onData((termId, data) => {
           if (termId !== id) return;
@@ -593,9 +609,11 @@ export default function TerminalPane({
 
         setStatus('connected');
 
-        const provDef = PROVIDERS.find((p) => p.id === provider);
-        if (provDef?.command) {
-          setTimeout(() => window.flowcode.terminal.write(id, provDef.command + '\r'), 500);
+        if (!info.existing) {
+          const provDef = PROVIDERS.find((p) => p.id === provider);
+          if (provDef?.command) {
+            setTimeout(() => window.flowcode.terminal.write(id, provDef.command + '\r'), 500);
+          }
         }
       } catch (err) {
         term.writeln(`\r\n\x1b[31mFailed to spawn terminal: ${err.message}\x1b[0m`);
@@ -635,18 +653,16 @@ export default function TerminalPane({
     : status === 'connecting' ? colors.status.warning : colors.status.error;
 
   const focusBorder = isFocused ? colors.border.focus : null;
-  const borderColor = isDropTarget ? colors.border.focus
+  const borderColor = isDropTarget ? colors.accent.purple + '60'
     : isDangerous ? colors.border.danger
     : focusBorder
-    || (status === 'connected' ? colors.border.active : colors.border.subtle);
+    || colors.border.subtle;
 
   const boxShadow = isDangerous
-    ? '0 0 30px rgba(231,76,60,.08), 0 4px 16px rgba(0,0,0,.3)'
+    ? '0 0 20px rgba(231,76,60,.06), 0 2px 8px rgba(0,0,0,.4)'
     : isFocused
-    ? '0 0 20px rgba(129,140,248,.1), 0 4px 16px rgba(0,0,0,.3)'
-    : status === 'connected'
-    ? '0 0 30px rgba(52,211,153,.08), 0 4px 16px rgba(0,0,0,.3)'
-    : '0 4px 16px rgba(0,0,0,.3)';
+    ? `0 0 0 1px ${colors.accent.purple}20, 0 2px 12px rgba(0,0,0,.3)`
+    : '0 1px 4px rgba(0,0,0,.2)';
 
   const cwdShort = currentCwd ? currentCwd.split(/[/\\]/).slice(-2).join('/') : null;
 
@@ -669,17 +685,26 @@ export default function TerminalPane({
     onDrop?.();
   }, [isApiProvider, onDrop]);
 
+  const accentColor = colors.accent.primary || colors.accent.purple;
+
   return (
     <div
+      className={isFocused && !isDangerous ? 'fc-gradient-border active' : ''}
       onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); onDragOver?.(); }}
       onDrop={handleOuterDrop}
       style={{
-        background: colors.bg.raised, border: `2px solid ${borderColor}`,
-        borderRadius: 14, display: 'flex', flexDirection: 'column',
+        background: colors.bg.surface,
+        backgroundImage: isFocused ? (colors.gradient?.surface || 'none') : 'none',
+        border: `1px solid ${borderColor}`,
+        borderRadius: 10, display: 'flex', flexDirection: 'column',
         overflow: 'hidden', minHeight: 0, flex: 1,
         opacity: isDragging ? 0.4 : 1,
-        boxShadow,
-        transition: 'border-color .3s ease, opacity .2s ease, box-shadow .3s ease',
+        boxShadow: isDangerous
+          ? `0 0 20px rgba(255, 92, 106, 0.06), 0 2px 8px rgba(0,0,0,.4)`
+          : isFocused
+          ? `0 0 0 1px ${accentColor}15, 0 4px 20px rgba(0,0,0,.3), 0 0 40px ${accentColor}06`
+          : '0 1px 4px rgba(0,0,0,.2)',
+        transition: 'border-color .3s ease, opacity .2s ease, box-shadow .3s ease, background-image .5s ease',
       }}
     >
       {/* Header */}
@@ -688,14 +713,14 @@ export default function TerminalPane({
         onDragStart={(e) => { e.dataTransfer.effectAllowed = 'move'; onDragStart?.(); }}
         onDragEnd={onDragEnd}
         style={{
-          display: 'flex', alignItems: 'center', gap: 6, padding: '8px 12px',
-          background: isDangerous ? '#3a1520' : colors.bg.overlay,
-          borderBottom: `1px solid ${borderColor}`,
-          cursor: 'grab', flexShrink: 0, flexWrap: 'wrap',
+          display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px',
+          background: isDangerous ? 'rgba(255, 60, 80, 0.06)' : 'transparent',
+          borderBottom: `1px solid ${colors.border.subtle}`,
+          cursor: 'grab', flexShrink: 0,
         }}
       >
         <span style={{
-          width: 8, height: 8, borderRadius: '50%', background: isDangerous ? colors.status.error : statusColor,
+          width: 7, height: 7, borderRadius: '50%', background: isDangerous ? colors.status.error : statusColor,
           animation: isDangerous || status === 'connecting' ? 'pulse 1.5s infinite' : 'none', flexShrink: 0,
         }} />
 
@@ -710,189 +735,179 @@ export default function TerminalPane({
               if (e.key === 'Escape') setIsRenaming(false);
             }}
             style={{
-              flex: 1, minWidth: 80, background: 'transparent', border: `1px solid ${colors.border.focus}`,
-              borderRadius: 4, padding: '2px 6px', color: headerLabelColor,
-              fontSize: 12, fontWeight: 600, fontFamily: fc, outline: 'none',
+              flex: 1, minWidth: 60, background: 'transparent', border: `1px solid ${colors.border.focus}`,
+              borderRadius: 4, padding: '1px 6px', color: headerLabelColor,
+              fontSize: 11, fontWeight: 600, fontFamily: fb, outline: 'none',
             }}
           />
         ) : (
           <span
             onDoubleClick={() => { setRenameVal(label); setIsRenaming(true); }}
-            style={{ fontSize: 12, fontWeight: 600, color: headerLabelColor, fontFamily: fc, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+            style={{ fontSize: 11, fontWeight: 600, color: colors.text.secondary, fontFamily: fb, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
           >
             {label}
           </span>
         )}
 
-        {/* Provider badge for API providers */}
         {isApiProvider && (
           <span style={{
-            fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 4, fontFamily: fc,
-            background: `${providerDef.color}18`,
-            color: providerDef.color,
-            border: `1px solid ${providerDef.color}30`,
-            letterSpacing: 0.5,
-            textTransform: 'uppercase',
+            fontSize: 8, fontWeight: 700, padding: '1px 5px', borderRadius: 3, fontFamily: fc,
+            background: `${providerDef.color}12`, color: providerDef.color,
+            letterSpacing: 0.5, textTransform: 'uppercase',
           }}>
             {providerDef.name}
           </span>
         )}
 
-        {/* Folder picker */}
-        <button onClick={pickFolder} style={{
-          all: 'unset', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4,
-          padding: '2px 6px', borderRadius: 4, fontSize: 10, fontFamily: fc, color: colors.text.ghost,
-          border: `1px solid transparent`, transition: 'all .15s',
-        }}
-        onMouseEnter={(e) => { e.currentTarget.style.borderColor = colors.border.subtle; e.currentTarget.style.color = colors.text.dim; }}
-        onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.color = colors.text.ghost; }}
-        title={currentCwd || 'Set working directory'}>
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z" />
-          </svg>
-          {cwdShort && <span>{cwdShort}</span>}
-        </button>
+        {cwdShort && (
+          <span style={{ fontSize: 9, color: colors.text.ghost, fontFamily: fc, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 120 }}>
+            {cwdShort}
+          </span>
+        )}
 
         <div style={{ flex: 1 }} />
 
-        {/* Mode badge — only for terminal providers */}
-        {!isApiProvider && (
-          <button
-            onClick={() => setMode((m) => m === 'usage' ? 'tokens' : 'usage')}
-            style={{
-              all: 'unset', cursor: 'pointer', fontSize: 9, fontWeight: 700,
-              padding: '2px 6px', borderRadius: 4, fontFamily: fc,
-              background: mode === 'usage' ? '#6c8aff18' : '#f0a05018',
-              color: mode === 'usage' ? '#6c8aff' : '#f0a050',
-              border: `1px solid ${mode === 'usage' ? '#6c8aff30' : '#f0a05030'}`,
-            }}
-          >{mode === 'usage' ? '⚡ USAGE' : '\u{1F511} TOKENS'}</button>
-        )}
-
         {ctxPercent != null && (
           <span style={{
-            fontSize: 9, fontWeight: 600, padding: '2px 6px', borderRadius: 4, fontFamily: fc,
-            background: ctxPercent >= 90 ? '#E74C3C18' : ctxPercent >= 70 ? '#F39C1218' : colors.bg.surface,
+            fontSize: 9, fontWeight: 600, padding: '1px 5px', borderRadius: 3, fontFamily: fc,
             color: ctxPercent >= 90 ? colors.status.error : ctxPercent >= 70 ? colors.status.warning : colors.text.dim,
-            border: `1px solid ${ctxPercent >= 70 ? (ctxPercent >= 90 ? '#E74C3C30' : '#F39C1230') : colors.border.subtle}`,
-          }}>{ctxPercent}% ctx</span>
+          }}>{ctxPercent}%</span>
         )}
 
-        {/* Preview toggle — shown when a dev server URL is detected */}
+        {isDangerous && (
+          <span style={{
+            fontSize: 8, fontWeight: 700, padding: '1px 5px', borderRadius: 3,
+            background: colors.status.error + '18', color: colors.status.error, fontFamily: fc,
+            letterSpacing: 0.5,
+          }}>DANGER</span>
+        )}
+
+        {listening && (
+          <span style={{
+            width: 7, height: 7, borderRadius: '50%', background: colors.status.error,
+            animation: 'pulse 1s infinite', flexShrink: 0,
+          }} />
+        )}
+
         {!isApiProvider && previewUrl && (
-          <button
-            onClick={() => setShowPreview((v) => !v)}
-            title={showPreview ? 'Hide preview' : `Preview ${previewUrl}`}
-            style={{
-              all: 'unset', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4,
-              padding: '2px 6px', borderRadius: 4, fontFamily: fc, fontSize: 9, fontWeight: 700,
-              background: showPreview ? `${colors.accent.cyan}18` : colors.bg.surface,
-              color: showPreview ? colors.accent.cyan : colors.text.dim,
-              border: `1px solid ${showPreview ? `${colors.accent.cyan}30` : colors.border.subtle}`,
-              transition: 'all .15s',
-            }}
-          >
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
-              <line x1="8" y1="21" x2="16" y2="21" />
-              <line x1="12" y1="17" x2="12" y2="21" />
-            </svg>
-            {showPreview ? 'PREVIEW' : 'PREVIEW'}
-          </button>
-        )}
-
-        {/* Caveman mode toggle — Claude CLI only */}
-        {provider === 'claude' && !isApiProvider && (
-          <button onClick={() => {
-            setCavemanActive((v) => !v);
-            sendToTerminal('/caveman\r');
-          }} style={{
-            all: 'unset', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4,
-            padding: '2px 6px', borderRadius: 4, fontFamily: fc, fontSize: 9, fontWeight: 700,
-            background: cavemanActive ? '#f0a05018' : colors.bg.surface,
-            color: cavemanActive ? '#f0a050' : colors.text.dim,
-            border: `1px solid ${cavemanActive ? '#f0a05030' : colors.border.subtle}`,
-          }}>
-            <div style={{
-              width: 24, height: 12, borderRadius: 6, position: 'relative',
-              background: cavemanActive ? '#f0a050' : colors.border.subtle,
-              transition: 'background .25s ease',
-            }}>
-              <div style={{
-                width: 8, height: 8, borderRadius: '50%', position: 'absolute', top: 2,
-                left: cavemanActive ? 14 : 2,
-                background: cavemanActive ? '#fff' : colors.text.dim,
-                transition: 'left .25s ease',
-              }} />
-            </div>
-            <span style={{ color: cavemanActive ? '#f0a050' : colors.text.ghost }}>{cavemanActive ? 'CAVEMAN' : 'CM'}</span>
-          </button>
-        )}
-
-        {/* Danger toggle */}
-        <button onClick={onToggleDanger} style={{
-          all: 'unset', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4,
-          padding: '2px 6px', borderRadius: 4, fontFamily: fc, fontSize: 9, fontWeight: 700,
-          background: isDangerous ? '#E74C3C18' : colors.bg.surface,
-          color: isDangerous ? colors.status.error : colors.text.dim,
-          border: `1px solid ${isDangerous ? '#E74C3C30' : colors.border.subtle}`,
-        }}>
-          <div style={{
-            width: 24, height: 12, borderRadius: 6, position: 'relative',
-            background: isDangerous ? colors.status.error : colors.border.subtle,
-            transition: 'background .25s ease',
-          }}>
-            <div style={{
-              width: 8, height: 8, borderRadius: '50%', position: 'absolute', top: 2,
-              left: isDangerous ? 14 : 2,
-              background: isDangerous ? '#fff' : colors.text.dim,
-              transition: 'left .25s ease',
-            }} />
-          </div>
-          <span style={{ color: isDangerous ? colors.status.error : colors.text.ghost }}>{isDangerous ? 'DANGER' : 'DG'}</span>
-        </button>
-
-        {/* Voice toggle */}
-        <button onClick={toggleVoice} style={{
-          all: 'unset', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-          width: 24, height: 24, borderRadius: 5,
-          background: listening ? '#E74C3C20' : colors.bg.surface,
-          border: `1px solid ${listening ? colors.status.error : colors.border.subtle}`,
-        }} title={listening ? 'Stop voice' : 'Start voice'}>
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke={listening ? colors.status.error : colors.text.dim} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="9" y="1" width="6" height="11" rx="3" />
-            <path d="M19 10v1a7 7 0 0 1-14 0v-1" />
-            <line x1="12" y1="19" x2="12" y2="23" />
-            <line x1="8" y1="23" x2="16" y2="23" />
-          </svg>
-        </button>
-
-        {/* Pop out button — Electron only */}
-        {window.flowcode?.window?.popout && (
-          <button
-            onClick={() => window.flowcode.window.popout(id)}
+          <button onClick={() => setShowPreview((v) => !v)} title={showPreview ? 'Hide preview' : 'Show preview'}
             style={{
               all: 'unset', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-              width: 24, height: 24, borderRadius: 5,
-              background: colors.bg.surface,
-              border: `1px solid ${colors.border.subtle}`,
-              transition: 'all 0.15s',
-            }}
-            onMouseEnter={(e) => { e.currentTarget.style.borderColor = colors.accent.cyan; e.currentTarget.style.background = colors.accent.cyan + '15'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.borderColor = colors.border.subtle; e.currentTarget.style.background = colors.bg.surface; }}
-            title="Pop out to separate window"
-          >
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke={colors.text.dim} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="15 3 21 3 21 9" />
-              <line x1="10" y1="14" x2="21" y2="3" />
-              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+              width: 22, height: 22, borderRadius: 4,
+              color: showPreview ? colors.accent.cyan : colors.text.dim, transition: 'color .15s',
+            }}>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="2" y="3" width="20" height="14" rx="2" ry="2" /><line x1="8" y1="21" x2="16" y2="21" /><line x1="12" y1="17" x2="12" y2="21" />
             </svg>
           </button>
         )}
 
+        {/* More menu — secondary actions */}
+        <div ref={moreMenuRef} style={{ position: 'relative' }}>
+          <button onClick={() => setMoreMenuOpen((o) => !o)} style={{
+            all: 'unset', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            width: 22, height: 22, borderRadius: 4,
+            color: colors.text.dim, transition: 'color .15s',
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.color = colors.text.secondary; }}
+          onMouseLeave={(e) => { e.currentTarget.style.color = colors.text.dim; }}
+          title="More options">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill={colors.text.dim} stroke="none">
+              <circle cx="5" cy="12" r="2" /><circle cx="12" cy="12" r="2" /><circle cx="19" cy="12" r="2" />
+            </svg>
+          </button>
+          {moreMenuOpen && (
+            <div style={{
+              position: 'absolute', top: '100%', right: 0, marginTop: 4, zIndex: 40,
+              background: colors.bg.elevated || colors.bg.overlay, border: `1px solid ${colors.border.medium || colors.border.subtle}`,
+              borderRadius: 8, padding: 4, minWidth: 160,
+              boxShadow: '0 8px 24px rgba(0,0,0,.4)',
+            }}>
+              <button onClick={() => { pickFolder(); setMoreMenuOpen(false); }} style={{
+                all: 'unset', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8,
+                width: '100%', padding: '6px 10px', borderRadius: 4, fontSize: 11, fontFamily: fb,
+                color: colors.text.secondary, transition: 'background .1s', boxSizing: 'border-box',
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = colors.bg.overlay; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z" /></svg>
+                Change folder
+              </button>
+
+              {!isApiProvider && (
+                <button onClick={() => { setMode((m) => m === 'usage' ? 'tokens' : 'usage'); setMoreMenuOpen(false); }} style={{
+                  all: 'unset', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8,
+                  width: '100%', padding: '6px 10px', borderRadius: 4, fontSize: 11, fontFamily: fb,
+                  color: colors.text.secondary, transition: 'background .1s', boxSizing: 'border-box',
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = colors.bg.overlay; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12" /></svg>
+                  {mode === 'usage' ? 'Show tokens' : 'Show usage'}
+                </button>
+              )}
+
+              {provider === 'claude' && !isApiProvider && (
+                <button onClick={() => { setCavemanActive((v) => !v); sendToTerminal('/caveman\r'); setMoreMenuOpen(false); }} style={{
+                  all: 'unset', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8,
+                  width: '100%', padding: '6px 10px', borderRadius: 4, fontSize: 11, fontFamily: fb,
+                  color: cavemanActive ? '#f0a050' : colors.text.secondary, transition: 'background .1s', boxSizing: 'border-box',
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = colors.bg.overlay; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
+                  <span style={{ fontSize: 12, width: 12, textAlign: 'center' }}>{cavemanActive ? '🔥' : '🪨'}</span>
+                  {cavemanActive ? 'Caveman off' : 'Caveman mode'}
+                </button>
+              )}
+
+              <button onClick={() => { onToggleDanger?.(); setMoreMenuOpen(false); }} style={{
+                all: 'unset', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8,
+                width: '100%', padding: '6px 10px', borderRadius: 4, fontSize: 11, fontFamily: fb,
+                color: isDangerous ? colors.status.error : colors.text.secondary, transition: 'background .1s', boxSizing: 'border-box',
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = colors.bg.overlay; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={isDangerous ? colors.status.error : 'currentColor'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
+                {isDangerous ? 'Safe mode' : 'Danger mode'}
+              </button>
+
+              <button onClick={() => { toggleVoice(); setMoreMenuOpen(false); }} style={{
+                all: 'unset', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8,
+                width: '100%', padding: '6px 10px', borderRadius: 4, fontSize: 11, fontFamily: fb,
+                color: listening ? colors.status.error : colors.text.secondary, transition: 'background .1s', boxSizing: 'border-box',
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = colors.bg.overlay; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="1" width="6" height="11" rx="3" /><path d="M19 10v1a7 7 0 01-14 0v-1" /><line x1="12" y1="19" x2="12" y2="23" /><line x1="8" y1="23" x2="16" y2="23" /></svg>
+                {listening ? 'Stop voice' : 'Voice input'}
+              </button>
+
+              {window.flowcode?.window?.popout && (
+                <button onClick={() => { window.flowcode.window.popout(id); setMoreMenuOpen(false); }} style={{
+                  all: 'unset', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8,
+                  width: '100%', padding: '6px 10px', borderRadius: 4, fontSize: 11, fontFamily: fb,
+                  color: colors.text.secondary, transition: 'background .1s', boxSizing: 'border-box',
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = colors.bg.overlay; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 3 21 3 21 9" /><line x1="10" y1="14" x2="21" y2="3" /><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6" /></svg>
+                  Pop out
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+
         <button onClick={onClose} style={{
-          all: 'unset', cursor: 'pointer', fontSize: 11, color: colors.text.dim, fontFamily: fc, padding: '0 3px',
-        }} title="Kill terminal">{'✕'}</button>
+          all: 'unset', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          width: 22, height: 22, borderRadius: 4,
+          color: colors.text.dim, transition: 'all .15s',
+        }}
+        onMouseEnter={(e) => { e.currentTarget.style.color = colors.status.error; e.currentTarget.style.background = colors.status.error + '15'; }}
+        onMouseLeave={(e) => { e.currentTarget.style.color = colors.text.dim; e.currentTarget.style.background = 'transparent'; }}
+        title="Close session">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+        </button>
       </div>
 
       <ContextBar percent={ctxPercent} />
@@ -993,33 +1008,29 @@ export default function TerminalPane({
 
       {/* Input bar with send button */}
       <div style={{
-        display: 'flex', gap: 8, padding: '8px 12px', alignItems: 'center',
+        display: 'flex', gap: 6, padding: '6px 10px', alignItems: 'center',
         borderTop: attachedImages.length ? 'none' : `1px solid ${colors.border.subtle}`,
         background: colors.bg.overlay,
         flexShrink: 0,
       }}>
-        {/* Image attach button */}
         <button
           onClick={handlePickImages}
-            title="Attach image"
-            style={{
-              all: 'unset', cursor: 'pointer', display: 'flex', alignItems: 'center',
-              justifyContent: 'center', width: 28, height: 28, borderRadius: 6,
-              background: attachedImages.length ? `${colors.accent.cyan}18` : colors.bg.surface,
-              border: `1px solid ${attachedImages.length ? `${colors.accent.cyan}40` : colors.border.subtle}`,
-              color: attachedImages.length ? colors.accent.cyan : colors.text.dim,
-              transition: 'all .15s',
-              flexShrink: 0,
-            }}
-            onMouseEnter={(e) => { e.currentTarget.style.borderColor = colors.accent.cyan; e.currentTarget.style.color = colors.accent.cyan; }}
-            onMouseLeave={(e) => { e.currentTarget.style.borderColor = attachedImages.length ? `${colors.accent.cyan}40` : colors.border.subtle; e.currentTarget.style.color = attachedImages.length ? colors.accent.cyan : colors.text.dim; }}
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-              <circle cx="8.5" cy="8.5" r="1.5" />
-              <polyline points="21 15 16 10 5 21" />
-            </svg>
-          </button>
+          title="Attach image"
+          style={{
+            all: 'unset', cursor: 'pointer', display: 'flex', alignItems: 'center',
+            justifyContent: 'center', width: 24, height: 24, borderRadius: 5,
+            color: attachedImages.length ? colors.accent.cyan : colors.text.dim,
+            transition: 'color .15s', flexShrink: 0,
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.color = colors.accent.cyan; }}
+          onMouseLeave={(e) => { e.currentTarget.style.color = attachedImages.length ? colors.accent.cyan : colors.text.dim; }}
+        >
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+            <circle cx="8.5" cy="8.5" r="1.5" />
+            <polyline points="21 15 16 10 5 21" />
+          </svg>
+        </button>
 
         <input
           ref={inputRef}
@@ -1032,27 +1043,28 @@ export default function TerminalPane({
               handleInputSend();
             }
           }}
-          placeholder={isApiProvider ? `message ${providerDef?.name || 'AI'}...` : 'type a command or message...'}
+          placeholder={isApiProvider ? `Message ${providerDef?.name || 'AI'}...` : 'Type a command or message...'}
           style={{
             flex: 1, background: 'transparent', border: 'none', outline: 'none',
-            color: colors.text.primary, fontSize: 12, fontFamily: fc, padding: '4px 0',
+            color: colors.text.primary, fontSize: 12, fontFamily: fc, padding: '3px 0',
           }}
         />
         <button
           onClick={handleInputSend}
           style={{
-            all: 'unset', cursor: 'pointer', fontSize: 10, fontWeight: 700,
-            padding: '5px 14px', borderRadius: 6, fontFamily: fc, color: '#fff',
-            background: isApiProvider
-              ? `linear-gradient(135deg, ${providerDef?.color || '#34d399'}, ${colors.accent.purple})`
-              : `linear-gradient(135deg, ${colors.accent.green}, ${colors.accent.purple})`,
-            boxShadow: `0 2px 8px ${(isApiProvider ? providerDef?.color : colors.accent.green) || colors.accent.green}30`,
-            transition: 'all .2s ease',
-            opacity: (inputVal.trim() || attachedImages.length) ? 1 : 0.5,
+            all: 'unset', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            width: 28, height: 28, borderRadius: 6,
+            background: (inputVal.trim() || attachedImages.length) ? colors.accent.purple : 'transparent',
+            color: (inputVal.trim() || attachedImages.length) ? '#fff' : colors.text.dim,
+            transition: 'all .15s',
           }}
-          onMouseEnter={(e) => { e.target.style.transform = 'translateY(-1px)'; e.target.style.boxShadow = `0 4px 12px ${(isApiProvider ? providerDef?.color : colors.accent.green) || colors.accent.green}40`; }}
-          onMouseLeave={(e) => { e.target.style.transform = 'none'; e.target.style.boxShadow = `0 2px 8px ${(isApiProvider ? providerDef?.color : colors.accent.green) || colors.accent.green}30`; }}
-        >SEND</button>
+          onMouseEnter={(e) => { if (inputVal.trim() || attachedImages.length) e.currentTarget.style.background = colors.accent.purple + 'dd'; }}
+          onMouseLeave={(e) => { if (inputVal.trim() || attachedImages.length) e.currentTarget.style.background = colors.accent.purple; }}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" />
+          </svg>
+        </button>
       </div>
     </div>
   );

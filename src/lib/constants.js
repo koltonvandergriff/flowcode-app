@@ -6,30 +6,110 @@ export const FONTS = {
   display: "'Orbitron', sans-serif",
 };
 
-// Re-export both palettes for theme-aware components
 export { DARK_COLORS, LIGHT_COLORS, DARK_TERMINAL_THEME, LIGHT_TERMINAL_THEME };
 
-// Default COLORS remains dark for backwards compatibility
-// Components not yet migrated to ThemeContext will continue using these
 export const COLORS = DARK_COLORS;
-
 export const TERMINAL_THEME = DARK_TERMINAL_THEME;
 
 export const PROVIDERS = [
-  { id: 'claude', name: 'Claude CLI', command: 'claude', color: COLORS.accent.green },
+  { id: 'claude', name: 'Claude CLI', command: 'claude', color: '#4af0c0' },
   { id: 'claude-api', name: 'Claude API', command: null, color: '#d4a27f', apiProvider: true },
-  { id: 'shell', name: 'Shell', command: null, color: COLORS.accent.amber },
-  { id: 'aider', name: 'Aider', command: 'aider', color: COLORS.accent.purple },
+  { id: 'shell', name: 'Shell', command: null, color: '#ffb340' },
+  { id: 'aider', name: 'Aider', command: 'aider', color: '#7c6aff' },
   { id: 'chatgpt', name: 'ChatGPT', command: null, color: '#10a37f', apiProvider: true },
   { id: 'openclaw', name: 'OpenClaw', command: null, color: '#ff6b35', apiProvider: true },
-  { id: 'custom', name: 'Custom', command: null, color: COLORS.accent.cyan },
+  { id: 'custom', name: 'Custom', command: null, color: '#40d8f0' },
 ];
 
 export const LAYOUTS = [
-  { id: '1x1', cols: 1, max: 1, label: '1x1' },
-  { id: '2x1', cols: 2, max: 2, label: '2x1' },
-  { id: '3x1', cols: 3, max: 3, label: '3x1' },
-  { id: '2x2', cols: 2, max: 4, label: '2x2' },
+  { id: '1x1', cols: 1, rows: 1, max: 1, label: '1' },
+  { id: '2x1', cols: 2, rows: 1, max: 2, label: '2' },
+  { id: '1x2', cols: 1, rows: 2, max: 2, label: '1×2' },
+  { id: '3x1', cols: 3, rows: 1, max: 3, label: '3' },
+  { id: '2x2', cols: 2, rows: 2, max: 4, label: '2×2' },
+  { id: '3x2', cols: 3, rows: 2, max: 6, label: '3×2' },
+  { id: '4x2', cols: 4, rows: 2, max: 8, label: '4×2' },
+  { id: '3x3', cols: 3, rows: 3, max: 9, label: '3×3' },
+  { id: '4x4', cols: 4, rows: 4, max: 16, label: '4×4' },
+];
+
+export const WORKSPACE_ROOMS = [
+  {
+    id: 'code',
+    name: 'Code',
+    desc: 'Claude + Shell side by side',
+    icon: 'code',
+    layout: '2x1',
+    terminals: [
+      { label: 'Claude', provider: 'claude' },
+      { label: 'Shell', provider: 'shell' },
+    ],
+  },
+  {
+    id: 'review',
+    name: 'Review',
+    desc: 'Review diffs and run tests',
+    icon: 'eye',
+    layout: '2x1',
+    terminals: [
+      { label: 'Review', provider: 'claude' },
+      { label: 'Tests', provider: 'shell' },
+    ],
+  },
+  {
+    id: 'fleet',
+    name: 'Fleet',
+    desc: '4 Claude agents in parallel',
+    icon: 'grid',
+    layout: '2x2',
+    terminals: [
+      { label: 'Agent 1', provider: 'claude' },
+      { label: 'Agent 2', provider: 'claude' },
+      { label: 'Agent 3', provider: 'claude' },
+      { label: 'Agent 4', provider: 'claude' },
+    ],
+  },
+  {
+    id: 'swarm',
+    name: 'Swarm',
+    desc: '9 agents — maximum parallelism',
+    icon: 'zap',
+    layout: '3x3',
+    terminals: [
+      { label: 'Agent 1', provider: 'claude' },
+      { label: 'Agent 2', provider: 'claude' },
+      { label: 'Agent 3', provider: 'claude' },
+      { label: 'Agent 4', provider: 'claude' },
+      { label: 'Agent 5', provider: 'claude' },
+      { label: 'Agent 6', provider: 'claude' },
+      { label: 'Agent 7', provider: 'claude' },
+      { label: 'Agent 8', provider: 'claude' },
+      { label: 'Agent 9', provider: 'claude' },
+    ],
+  },
+  {
+    id: 'fullstack',
+    name: 'Full Stack',
+    desc: 'Frontend + Backend + DB + Tests',
+    icon: 'layers',
+    layout: '2x2',
+    terminals: [
+      { label: 'Frontend', provider: 'shell' },
+      { label: 'Backend', provider: 'shell' },
+      { label: 'Claude', provider: 'claude' },
+      { label: 'Tests', provider: 'shell' },
+    ],
+  },
+  {
+    id: 'solo',
+    name: 'Focus',
+    desc: 'Single terminal, zero distractions',
+    icon: 'target',
+    layout: '1x1',
+    terminals: [
+      { label: 'Claude', provider: 'claude' },
+    ],
+  },
 ];
 
 export const COMMAND_LIBRARY = [

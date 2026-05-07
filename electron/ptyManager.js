@@ -25,9 +25,12 @@ export class PtyManager {
       pty: term,
       dataCallbacks: [],
       exitCallbacks: [],
+      scrollback: '',
     };
 
     term.onData((data) => {
+      entry.scrollback += data;
+      if (entry.scrollback.length > 50000) entry.scrollback = entry.scrollback.slice(-40000);
       entry.dataCallbacks.forEach((cb) => cb(data));
     });
 
@@ -62,6 +65,10 @@ export class PtyManager {
     for (const [id] of this.terminals) {
       this.kill(id);
     }
+  }
+
+  getScrollback(id) {
+    return this.terminals.get(id)?.scrollback || '';
   }
 
   onData(id, callback) {

@@ -7,6 +7,7 @@ import TerminalPane from './TerminalPane';
 import ResizeHandle from './ResizeHandle';
 
 const fc = FONTS.mono;
+const fb = FONTS.body;
 
 export default function TerminalGrid({ dangerFlags, onToggleDanger }) {
   const { colors } = useTheme();
@@ -46,20 +47,35 @@ export default function TerminalGrid({ dangerFlags, onToggleDanger }) {
     const onInsertSnippet = (e) => {
       window.dispatchEvent(new CustomEvent('flowcode:insertToTerminal', { detail: { terminalId: focusedId, text: e.detail } }));
     };
+    const onApplyRoom = (e) => {
+      const room = e.detail;
+      if (!room) return;
+      updateWorkspace((prev) => {
+        const newTerminals = room.terminals.map((t, i) => ({
+          id: `term-${Date.now()}-${i}`,
+          label: t.label,
+          provider: t.provider,
+          cwd: settings?.defaultCwd || undefined,
+        }));
+        return { ...prev, layout: room.layout, terminals: newTerminals };
+      });
+    };
 
     window.addEventListener('flowcode:setLayout', onSetLayout);
     window.addEventListener('flowcode:addTerminal', onAddTerminal);
     window.addEventListener('flowcode:closeTerminal', onCloseTerminal);
     window.addEventListener('flowcode:cycleFocus', onCycleFocus);
     window.addEventListener('flowcode:insertSnippet', onInsertSnippet);
+    window.addEventListener('flowcode:applyRoom', onApplyRoom);
     return () => {
       window.removeEventListener('flowcode:setLayout', onSetLayout);
       window.removeEventListener('flowcode:addTerminal', onAddTerminal);
       window.removeEventListener('flowcode:closeTerminal', onCloseTerminal);
       window.removeEventListener('flowcode:cycleFocus', onCycleFocus);
       window.removeEventListener('flowcode:insertSnippet', onInsertSnippet);
+      window.removeEventListener('flowcode:applyRoom', onApplyRoom);
     };
-  }, [focusedId, visible]);
+  }, [focusedId, visible, updateWorkspace, settings]);
 
   const setLayout = useCallback((id) => {
     updateWorkspace((prev) => ({ ...prev, layout: id }));
@@ -164,8 +180,9 @@ export default function TerminalGrid({ dangerFlags, onToggleDanger }) {
     </div>
   );
 
+  const rows = layoutDef.rows || 1;
   const colSizes = paneSizes?.col || Array(layoutDef.cols).fill(100 / layoutDef.cols);
-  const rowSizes = paneSizes?.row || (layout === '2x2' ? [50, 50] : [100]);
+  const rowSizes = paneSizes?.row || Array(rows).fill(100 / rows);
 
   const buildRow = (items, rowIdx) => {
     const result = [];
@@ -182,64 +199,86 @@ export default function TerminalGrid({ dangerFlags, onToggleDanger }) {
   };
 
   const renderGrid = () => {
-    if (layout === '2x2') {
-      const row1 = visible.slice(0, 2);
-      const row2 = visible.slice(2, 4);
+    const rows = layoutDef.rows || 1;
+    const cols = layoutDef.cols || 1;
+
+    if (rows <= 1) {
       return (
-        <div ref={gridRef} style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
-          <div style={{ flex: `${rowSizes[0]} 1 0`, display: 'flex', minHeight: 0, overflow: 'hidden' }}>
-            {buildRow(row1, 0)}
-          </div>
-          {row2.length > 0 && (
-            <>
-              <ResizeHandle direction="horizontal" onResize={(delta) => handleResize(0, delta, 'row')} />
-              <div style={{ flex: `${rowSizes[1]} 1 0`, display: 'flex', minHeight: 0, overflow: 'hidden' }}>
-                {buildRow(row2, 1)}
-              </div>
-            </>
-          )}
+        <div ref={gridRef} style={{ display: 'flex', flex: 1, minHeight: 0, overflow: 'hidden' }}>
+          {buildRow(visible, 0)}
         </div>
       );
     }
 
+    const rowChunks = [];
+    for (let r = 0; r < rows; r++) {
+      rowChunks.push(visible.slice(r * cols, (r + 1) * cols));
+    }
+
     return (
-      <div ref={gridRef} style={{ display: 'flex', flex: 1, minHeight: 0, overflow: 'hidden' }}>
-        {buildRow(visible, 0)}
+      <div ref={gridRef} style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
+        {rowChunks.map((chunk, r) => {
+          if (chunk.length === 0) return null;
+          return (
+            <div key={r} style={{ display: 'contents' }}>
+              {r > 0 && (
+                <ResizeHandle direction="horizontal" onResize={(delta) => handleResize(r - 1, delta, 'row')} />
+              )}
+              <div style={{ flex: `${rowSizes[r] || (100 / rows)} 1 0`, display: 'flex', minHeight: 0, overflow: 'hidden' }}>
+                {buildRow(chunk, r)}
+              </div>
+            </div>
+          );
+        })}
       </div>
     );
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1, minHeight: 0 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 3, flex: 1, minHeight: 0 }}>
       {/* Toolbar */}
-      <div style={{
+      <div className="fc-glass" style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '12px 16px', background: colors.bg.raised, borderRadius: 12, border: `1px solid ${colors.border.subtle}`,
+        padding: '5px 12px', background: colors.bg.glass || colors.bg.raised, borderRadius: 8,
+        border: `1px solid ${colors.border.subtle}`,
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ fontSize: 12, fontWeight: 700, color: colors.accent.green, letterSpacing: 1.5, fontFamily: fc }}>
-            TERMINALS
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: 11, fontWeight: 600, color: colors.text.secondary, letterSpacing: 0.3, fontFamily: fb }}>
+            Terminals
           </span>
-          <span style={{ fontSize: 11, color: colors.text.muted, fontFamily: fc }}>
-            {terminals.length} session{terminals.length !== 1 ? 's' : ''}
+          <span style={{
+            fontSize: 9, fontWeight: 600, padding: '1px 6px', borderRadius: 10,
+            background: (colors.accent.primary || colors.accent.green) + '15',
+            color: colors.accent.primary || colors.accent.green, fontFamily: fc,
+          }}>
+            {terminals.length}
           </span>
         </div>
-        <div style={{ display: 'flex', gap: 3, alignItems: 'center' }}>
-          {LAYOUTS.map((l) => (
-            <button key={l.id} onClick={() => setLayout(l.id)} style={{
-              all: 'unset', cursor: 'pointer', fontSize: 11, fontWeight: 600,
-              padding: '6px 10px', borderRadius: 6, fontFamily: fc,
-              background: layout === l.id ? colors.accent.purple + '20' : 'transparent',
-              color: layout === l.id ? colors.accent.purple : colors.text.dim,
-              transition: 'all .2s ease',
-            }}>{l.label}</button>
-          ))}
+        <div style={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+          <div style={{
+            display: 'flex', gap: 1, padding: 2, borderRadius: 6,
+            background: colors.bg.overlay + '80',
+          }}>
+            {LAYOUTS.map((l) => (
+              <button key={l.id} onClick={() => setLayout(l.id)} style={{
+                all: 'unset', cursor: 'pointer', fontSize: 10, fontWeight: 600,
+                padding: '3px 8px', borderRadius: 4, fontFamily: fc,
+                background: layout === l.id ? (colors.accent.primary || colors.accent.purple) + '20' : 'transparent',
+                color: layout === l.id ? (colors.accent.primary || colors.accent.purple) : colors.text.dim,
+                transition: 'all .15s ease',
+              }}>{l.label}</button>
+            ))}
+          </div>
           <button onClick={addTerminal} style={{
-            all: 'unset', cursor: 'pointer', fontSize: 11, fontWeight: 700,
-            padding: '6px 14px', borderRadius: 8, fontFamily: fc,
-            background: `linear-gradient(135deg,${colors.accent.green},${colors.accent.cyan})`, color: '#fff',
-            marginLeft: 4, boxShadow: `0 2px 8px ${colors.accent.green}30`,
-          }}>+ TERMINAL</button>
+            all: 'unset', cursor: 'pointer', fontSize: 10, fontWeight: 600,
+            padding: '4px 12px', borderRadius: 6, fontFamily: fb,
+            background: (colors.accent.secondary || colors.accent.green) + '15',
+            color: colors.accent.secondary || colors.accent.green,
+            marginLeft: 6, transition: 'all .15s',
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.background = (colors.accent.secondary || colors.accent.green) + '25'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = (colors.accent.secondary || colors.accent.green) + '15'; }}
+          >+ Terminal</button>
         </div>
       </div>
 

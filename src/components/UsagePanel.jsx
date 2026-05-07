@@ -46,7 +46,7 @@ export default function UsagePanel() {
   const { colors } = useTheme();
   const [usage, setUsage] = useState(null);
   const [plan, setPlan] = useState(null);
-  const [collapsed, setCollapsed] = useState(() => localStorage.getItem('fc-usage') === 'collapsed');
+  const [collapsed, setCollapsed] = useState(true);
 
   const refresh = useCallback(async () => {
     if (!window.flowcode?.cost) return;
@@ -84,22 +84,26 @@ export default function UsagePanel() {
   const costPct = costLimit < Infinity ? ((usage.monthly.cost / costLimit) * 100).toFixed(0) : null;
 
   return (
-    <div style={{
-      background: colors.bg.raised, border: `1px solid ${colors.border.subtle}`, borderRadius: 10,
+    <div className="fc-glass" style={{
+      background: colors.bg.glass || colors.bg.raised, border: `1px solid ${colors.border.subtle}`, borderRadius: 8,
       overflow: 'hidden', flexShrink: 0,
     }}>
       <button onClick={toggle} style={{
         all: 'unset', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        width: '100%', padding: '8px 16px', boxSizing: 'border-box',
-      }}>
+        width: '100%', padding: '5px 14px', boxSizing: 'border-box',
+        transition: 'background .15s',
+      }}
+      onMouseEnter={(e) => { e.currentTarget.style.background = colors.bg.overlay; }}
+      onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+      >
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ fontSize: 10, fontWeight: 700, color: colors.accent.purple, letterSpacing: 1.5, fontFamily: fc }}>
-            USAGE
-          </span>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={colors.accent.purple} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+          </svg>
           {plan && (
             <span style={{
-              fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 4,
-              background: colors.accent.purple + '18', color: colors.accent.purple, fontFamily: fc,
+              fontSize: 9, fontWeight: 700, padding: '1px 6px', borderRadius: 4,
+              background: colors.accent.purple + '15', color: colors.accent.purple, fontFamily: fc,
             }}>
               {plan.name.toUpperCase()}
             </span>
@@ -113,17 +117,17 @@ export default function UsagePanel() {
             ${sessionCost}
           </span>
           <span style={{ fontSize: 10, color: colors.text.dim, fontFamily: fc }}>
-            {formatTokens(usage.session.total)} tokens
+            {formatTokens(usage.session.total)} tok
           </span>
           {monthPct && parseInt(monthPct) >= 80 && (
             <span style={{ fontSize: 9, fontWeight: 700, color: colors.status.warning, fontFamily: fc }}>
-              {monthPct}% of plan
+              {monthPct}%
             </span>
           )}
-          <span style={{
-            fontSize: 8, color: colors.text.ghost, transform: collapsed ? 'rotate(-90deg)' : 'rotate(0deg)',
-            transition: 'transform .2s ease',
-          }}>&#9660;</span>
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke={colors.text.ghost} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+            style={{ transform: collapsed ? 'rotate(-90deg)' : 'rotate(0deg)', transition: 'transform .2s ease' }}>
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
         </div>
       </button>
 

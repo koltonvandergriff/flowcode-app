@@ -1,0 +1,18 @@
+{
+  "name": "@flowcode/mcp-server",
+  "version": "0.1.0",
+  "description": "FlowCode MCP server — exposes workspace, tasks, memory, and terminals to external AI tools",
+  "type": "module",
+  "main": "index.js",
+  "bin": {
+    "flowcode-mcp": "./index.js"
+  },
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.1"
+  },
+  "author": "DutchMade Co.",
+  "license": "MIT"
+}

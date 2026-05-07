@@ -63,67 +63,9 @@ export default function FileActivity({ cwd, open, onToggle }) {
   return (
     <>
       <div style={{
-        display: 'flex',
-        flexDirection: 'row',
-        height: '100%',
-        flexShrink: 0,
-        width: open ? PANEL_WIDTH : COLLAPSED_WIDTH,
-        transition: 'width 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
-        overflow: 'hidden',
+        display: 'flex', flexDirection: 'column', flex: 1,
+        overflow: 'hidden', minHeight: 0,
       }}>
-        {/* Collapsed icon strip */}
-        <div style={{
-          width: COLLAPSED_WIDTH,
-          flexShrink: 0,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          paddingTop: 8,
-          gap: 4,
-          background: colors.bg.surface,
-          borderRight: `1px solid ${colors.border.subtle}`,
-          borderRadius: open ? '8px 0 0 8px' : 8,
-        }}>
-          <button onClick={handleToggle} title="Git Files" style={{
-            all: 'unset', cursor: 'pointer', display: 'flex', flexDirection: 'column',
-            alignItems: 'center', justifyContent: 'center', gap: 4,
-            width: 28, height: 28, borderRadius: 6,
-            background: open ? colors.accent.amber + '18' : 'transparent',
-            color: open ? colors.accent.amber : colors.text.dim,
-            transition: 'all 0.2s',
-            position: 'relative',
-          }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="3" />
-              <line x1="12" y1="3" x2="12" y2="9" />
-              <line x1="12" y1="15" x2="12" y2="21" />
-              <path d="M5.6 5.6l4.3 4.3" />
-              <path d="M14.1 14.1l4.3 4.3" />
-            </svg>
-            {badge && !open && (
-              <span style={{
-                position: 'absolute', top: -2, right: -2,
-                fontSize: 8, fontWeight: 700, padding: '1px 4px', borderRadius: 6,
-                background: colors.accent.amber, color: '#000', fontFamily: fc,
-                lineHeight: '12px', minWidth: 10, textAlign: 'center',
-              }}>{badge}</span>
-            )}
-          </button>
-        </div>
-
-        {/* Expanded panel content */}
-        <div style={{
-          width: PANEL_WIDTH - COLLAPSED_WIDTH,
-          flexShrink: 0,
-          display: 'flex',
-          flexDirection: 'column',
-          background: colors.bg.raised,
-          borderRight: `1px solid ${colors.border.subtle}`,
-          borderRadius: '0 8px 8px 0',
-          opacity: open ? 1 : 0,
-          transition: 'opacity 0.2s ease',
-          overflow: 'hidden',
-        }}>
           {/* Header */}
           <div style={{
             padding: '10px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -132,14 +74,14 @@ export default function FileActivity({ cwd, open, onToggle }) {
           }}>
             <div style={{ minWidth: 0, flex: 1 }}>
               <div style={{
-                fontSize: 11, fontWeight: 700, color: colors.accent.amber,
+                fontSize: 12, fontWeight: 700, color: colors.accent.amber,
                 fontFamily: fc, letterSpacing: 1,
                 display: 'flex', alignItems: 'center', gap: 6,
               }}>
                 GIT
                 {badge && (
                   <span style={{
-                    fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 8,
+                    fontSize: 10, fontWeight: 700, padding: '1px 5px', borderRadius: 8,
                     background: colors.accent.amber + '20', color: colors.accent.amber,
                     fontFamily: fc,
                   }}>{badge}</span>
@@ -147,7 +89,7 @@ export default function FileActivity({ cwd, open, onToggle }) {
               </div>
               {branch && (
                 <div style={{
-                  fontSize: 10, color: colors.text.dim, fontFamily: fc, marginTop: 2,
+                  fontSize: 11, color: colors.text.dim, fontFamily: fc, marginTop: 2,
                   overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                 }}>
                   <span style={{ color: colors.accent.purple }}>&#9741;</span> {branch}
@@ -193,18 +135,18 @@ export default function FileActivity({ cwd, open, onToggle }) {
               return (
                 <button key={i} onClick={() => openDiff(f.file)} style={{
                   all: 'unset', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8,
-                  padding: '5px 12px', width: '100%', boxSizing: 'border-box',
+                  padding: '7px 12px', width: '100%', boxSizing: 'border-box',
                   fontSize: 12, fontFamily: fc, transition: 'background .15s',
                 }}
                 onMouseEnter={(e) => { e.currentTarget.style.background = colors.bg.overlay; }}
                 onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
                 title={`${STATUS_LABELS[f.status] || f.status}: ${f.file}`}
                 >
-                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: color, flexShrink: 0 }} />
+                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: color, flexShrink: 0 }} />
                   <span style={{ color: colors.text.primary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
                     {fileName}
                   </span>
-                  {dir && <span style={{ color: colors.text.ghost, fontSize: 10, flexShrink: 0 }}>{dir}</span>}
+                  {dir && <span style={{ color: colors.text.ghost, fontSize: 11, flexShrink: 0 }}>{dir}</span>}
                 </button>
               );
             })}
@@ -215,11 +157,10 @@ export default function FileActivity({ cwd, open, onToggle }) {
             padding: '6px 12px', borderTop: `1px solid ${colors.border.subtle}`,
             flexShrink: 0,
           }}>
-            <span style={{ fontSize: 9, color: colors.text.dim, fontFamily: fc }}>
+            <span style={{ fontSize: 10, color: colors.text.dim, fontFamily: fc }}>
               {files.length} change{files.length !== 1 ? 's' : ''}
             </span>
           </div>
-        </div>
       </div>
 
       {diffFile && <DiffViewer file={diffFile} diff={diffContent} onClose={() => setDiffFile(null)} />}

@@ -84,6 +84,20 @@ contextBridge.exposeInMainWorld('flowcode', {
     log: (level, message, meta) => ipcRenderer.invoke('crash:log', { level, message, meta }),
   },
 
+  memory: {
+    list: (tag) => ipcRenderer.invoke('memory:list', tag),
+    get: (id) => ipcRenderer.invoke('memory:get', id),
+    create: (entry) => ipcRenderer.invoke('memory:create', entry),
+    update: (id, updates) => ipcRenderer.invoke('memory:update', { id, updates }),
+    delete: (id) => ipcRenderer.invoke('memory:delete', id),
+    search: (query) => ipcRenderer.invoke('memory:search', query),
+  },
+
+  tasks: {
+    list: () => ipcRenderer.invoke('tasks:list'),
+    save: (tasks) => ipcRenderer.invoke('tasks:save', tasks),
+  },
+
   plugins: {
     list: () => ipcRenderer.invoke('plugins:list'),
     load: (name) => ipcRenderer.invoke('plugins:load', name),
@@ -104,6 +118,17 @@ contextBridge.exposeInMainWorld('flowcode', {
     status: (cwd) => ipcRenderer.invoke('git:status', { cwd }),
     diff: (cwd, file) => ipcRenderer.invoke('git:diff', { cwd, file }),
     branch: (cwd) => ipcRenderer.invoke('git:branch', { cwd }),
+  },
+
+  github: {
+    user: () => ipcRenderer.invoke('github:user'),
+    repos: (opts) => ipcRenderer.invoke('github:repos', opts || {}),
+    prs: (opts) => ipcRenderer.invoke('github:prs', opts),
+    issues: (opts) => ipcRenderer.invoke('github:issues', opts),
+    notifications: () => ipcRenderer.invoke('github:notifications'),
+    repoInfo: (opts) => ipcRenderer.invoke('github:repoInfo', opts),
+    contents: (opts) => ipcRenderer.invoke('github:contents', opts),
+    branches: (opts) => ipcRenderer.invoke('github:branches', opts),
   },
 
   codeburn: {

@@ -13,6 +13,8 @@ import { CrashReporter } from './crashReporter.js';
 import { initAutoUpdater } from './autoUpdater.js';
 import { PluginManager } from './pluginManager.js';
 import { ClaudeUsageWatcher } from './claudeUsageWatcher.js';
+import { MemoryStore } from './memoryStore.js';
+import { readFileSync, writeFileSync } from 'fs';
 
 const execFileAsync = promisify(execFile);
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -36,6 +38,7 @@ const crashReporter = new CrashReporter();
 crashReporter.init();
 const pluginManager = new PluginManager(settingsStore);
 const claudeUsageWatcher = new ClaudeUsageWatcher(costTracker, settingsStore);
+const memoryStore = new MemoryStore();
 
 function createSplashWindow() {
   splashWindow = new BrowserWindow({
@@ -146,25 +149,27 @@ ipcMain.handle('terminal:spawn', (_, opts) => {
   const id = opts.id || `term-${Date.now()}`;
   const info = ptyManager.spawn(id, opts);
 
-  ptyManager.onData(id, (data) => {
-    mainWindow?.webContents.send('terminal:data', { id, data });
-    // Also broadcast to child popout windows
-    for (const [, win] of childWindows) {
-      if (!win.isDestroyed()) {
-        win.webContents.send('terminal:data', { id, data });
+  if (!info.existing) {
+    ptyManager.onData(id, (data) => {
+      mainWindow?.webContents.send('terminal:data', { id, data });
+      for (const [, win] of childWindows) {
+        if (!win.isDestroyed()) {
+          win.webContents.send('terminal:data', { id, data });
+        }
       }
-    }
-  });
+    });
 
-  ptyManager.onExit(id, (exitCode) => {
-    mainWindow?.webContents.send('terminal:exit', { id, exitCode });
-    for (const [, win] of childWindows) {
-      if (!win.isDestroyed()) {
-        win.webContents.send('terminal:exit', { id, exitCode });
+    ptyManager.onExit(id, (exitCode) => {
+      mainWindow?.webContents.send('terminal:exit', { id, exitCode });
+      for (const [, win] of childWindows) {
+        if (!win.isDestroyed()) {
+          win.webContents.send('terminal:exit', { id, exitCode });
+        }
       }
-    }
-  });
+    });
+  }
 
+  info.scrollback = info.existing ? ptyManager.getScrollback(id) : '';
   return info;
 });
 
@@ -254,6 +259,26 @@ ipcMain.handle('plugins:disable', (_, name) => pluginManager.disablePlugin(name)
 ipcMain.handle('plugins:getPath', () => pluginManager.getPluginsPath());
 ipcMain.handle('plugins:openFolder', () => {
   shell.openPath(pluginManager.getPluginsPath());
+});
+
+// --- Memory IPC ---
+
+ipcMain.handle('memory:list', (_, tag) => memoryStore.list(tag));
+ipcMain.handle('memory:get', (_, id) => memoryStore.get(id));
+ipcMain.handle('memory:create', (_, entry) => memoryStore.create(entry));
+ipcMain.handle('memory:update', (_, { id, updates }) => memoryStore.update(id, updates));
+ipcMain.handle('memory:delete', (_, id) => memoryStore.delete(id));
+ipcMain.handle('memory:search', (_, query) => memoryStore.search(query));
+
+// --- Tasks (file-backed for MCP access) ---
+
+const tasksFile = join(sessionStore.dataDir, 'tasks.json');
+ipcMain.handle('tasks:list', () => {
+  try { return JSON.parse(readFileSync(tasksFile, 'utf8')); }
+  catch { return []; }
+});
+ipcMain.handle('tasks:save', (_, tasks) => {
+  writeFileSync(tasksFile, JSON.stringify(tasks, null, 2), 'utf8');
 });
 
 // --- Dialog IPC ---
@@ -360,6 +385,76 @@ ipcMain.handle('git:branch', async (_, { cwd }) => {
   } catch {
     return { branch: null };
   }
+});
+
+// --- GitHub API IPC ---
+
+async function ghFetch(path, token) {
+  const res = await fetch(`https://api.github.com${path}`, {
+    headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json', 'User-Agent': 'FlowCode' },
+  });
+  if (!res.ok) throw new Error(`GitHub ${res.status}: ${res.statusText}`);
+  return res.json();
+}
+
+ipcMain.handle('github:user', async () => {
+  const token = envStore.get('GITHUB_PAT');
+  if (!token) return { error: 'No GitHub PAT configured' };
+  try { return await ghFetch('/user', token); }
+  catch (err) { return { error: err.message }; }
+});
+
+ipcMain.handle('github:repos', async (_, { org, page = 1, perPage = 30 }) => {
+  const token = envStore.get('GITHUB_PAT');
+  if (!token) return { error: 'No GitHub PAT configured' };
+  try {
+    const endpoint = org ? `/orgs/${org}/repos` : '/user/repos';
+    return await ghFetch(`${endpoint}?sort=updated&per_page=${perPage}&page=${page}`, token);
+  } catch (err) { return { error: err.message }; }
+});
+
+ipcMain.handle('github:prs', async (_, { owner, repo, state = 'open' }) => {
+  const token = envStore.get('GITHUB_PAT');
+  if (!token) return { error: 'No GitHub PAT configured' };
+  try { return await ghFetch(`/repos/${owner}/${repo}/pulls?state=${state}&per_page=20&sort=updated`, token); }
+  catch (err) { return { error: err.message }; }
+});
+
+ipcMain.handle('github:issues', async (_, { owner, repo, state = 'open' }) => {
+  const token = envStore.get('GITHUB_PAT');
+  if (!token) return { error: 'No GitHub PAT configured' };
+  try {
+    const items = await ghFetch(`/repos/${owner}/${repo}/issues?state=${state}&per_page=20&sort=updated`, token);
+    return items.filter(i => !i.pull_request);
+  } catch (err) { return { error: err.message }; }
+});
+
+ipcMain.handle('github:notifications', async () => {
+  const token = envStore.get('GITHUB_PAT');
+  if (!token) return { error: 'No GitHub PAT configured' };
+  try { return await ghFetch('/notifications?per_page=20', token); }
+  catch (err) { return { error: err.message }; }
+});
+
+ipcMain.handle('github:repoInfo', async (_, { owner, repo }) => {
+  const token = envStore.get('GITHUB_PAT');
+  if (!token) return { error: 'No GitHub PAT configured' };
+  try { return await ghFetch(`/repos/${owner}/${repo}`, token); }
+  catch (err) { return { error: err.message }; }
+});
+
+ipcMain.handle('github:contents', async (_, { owner, repo, path = '' }) => {
+  const token = envStore.get('GITHUB_PAT');
+  if (!token) return { error: 'No GitHub PAT configured' };
+  try { return await ghFetch(`/repos/${owner}/${repo}/contents/${path}`, token); }
+  catch (err) { return { error: err.message }; }
+});
+
+ipcMain.handle('github:branches', async (_, { owner, repo }) => {
+  const token = envStore.get('GITHUB_PAT');
+  if (!token) return { error: 'No GitHub PAT configured' };
+  try { return await ghFetch(`/repos/${owner}/${repo}/branches?per_page=30`, token); }
+  catch (err) { return { error: err.message }; }
 });
 
 // --- Window control IPC ---

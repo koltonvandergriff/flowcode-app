@@ -3,6 +3,7 @@ import { FONTS } from '../lib/constants';
 import { useTheme } from '../hooks/useTheme';
 
 const fc = FONTS.mono;
+const fb = FONTS.body;
 
 export default function MacroBar({ macros, onExecute, onDelete }) {
   const { colors } = useTheme();
@@ -12,13 +13,14 @@ export default function MacroBar({ macros, onExecute, onDelete }) {
   const [newAction, setNewAction] = useState('');
 
   return (
-    <div style={{
-      display: 'flex', alignItems: 'center', gap: 6, padding: '4px 16px',
-      background: colors.bg.raised, borderRadius: 10, border: `1px solid ${colors.border.subtle}`,
+    <div className="fc-glass" style={{
+      display: 'flex', alignItems: 'center', gap: 5, padding: '3px 12px',
+      background: colors.bg.glass || colors.bg.raised, borderRadius: 8,
+      border: `1px solid ${colors.border.subtle}`,
       overflowX: 'auto', flexShrink: 0,
     }}>
-      <span style={{ fontSize: 10, fontWeight: 700, color: colors.text.dim, fontFamily: fc, letterSpacing: 1, flexShrink: 0 }}>
-        MACROS
+      <span style={{ fontSize: 10, fontWeight: 600, color: colors.text.ghost, fontFamily: fb, letterSpacing: 0.3, flexShrink: 0 }}>
+        Macros
       </span>
 
       {macros.map((m) => (

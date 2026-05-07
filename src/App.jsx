@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useContext, useMemo } from 'react';
-import { FONTS } from './lib/constants';
+import { FONTS, WORKSPACE_ROOMS } from './lib/constants';
+import { PALETTES } from './lib/themes';
 import { useTheme } from './hooks/useTheme';
 import { ToastProvider } from './contexts/ToastContext';
 import { WorkspaceProvider, WorkspaceContext } from './contexts/WorkspaceContext';
@@ -28,6 +29,11 @@ import PluginManagerPanel from './components/PluginManager';
 import UpdateNotification from './components/UpdateNotification';
 import PopoutTerminal from './components/PopoutTerminal';
 import AnalyticsDashboard from './components/AnalyticsDashboard';
+import CommandPalette from './components/CommandPalette';
+import TaskBoard from './components/TaskBoard';
+import MemoryPanel from './components/MemoryPanel';
+import GitHubPanel from './components/GitHubPanel';
+import SideNav from './components/SideNav';
 import { isAuthenticated, logout } from './lib/authService';
 
 const RIGHT_PANEL_WIDTH = 280;
@@ -47,12 +53,12 @@ function RightSidebarPanel({ open, onToggle, activeTab, onTabChange, onInsert })
       overflow: 'hidden',
     }}>
       {/* Panel content */}
-      <div style={{
+      <div className="fc-glass" style={{
         width: RIGHT_PANEL_WIDTH - RIGHT_COLLAPSED_WIDTH,
         flexShrink: 0,
         display: 'flex',
         flexDirection: 'column',
-        background: colors.bg.raised,
+        background: colors.bg.glass || colors.bg.raised,
         borderLeft: `1px solid ${colors.border.subtle}`,
         borderRadius: '8px 0 0 8px',
         opacity: open ? 1 : 0,
@@ -103,7 +109,7 @@ function RightSidebarPanel({ open, onToggle, activeTab, onTabChange, onInsert })
       </div>
 
       {/* Collapsed icon strip */}
-      <div style={{
+      <div className="fc-glass" style={{
         width: RIGHT_COLLAPSED_WIDTH,
         flexShrink: 0,
         display: 'flex',
@@ -111,7 +117,7 @@ function RightSidebarPanel({ open, onToggle, activeTab, onTabChange, onInsert })
         alignItems: 'center',
         paddingTop: 8,
         gap: 4,
-        background: colors.bg.raised,
+        background: colors.bg.glass || colors.bg.raised,
         borderLeft: `1px solid ${colors.border.subtle}`,
         borderRadius: open ? '0 8px 8px 0' : 8,
       }}>
@@ -159,7 +165,7 @@ function AppInner({ onLogout }) {
 
   const [dangerFlags, setDangerFlags] = useState({ global: false, perTerminal: {} });
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [gitOpen, setGitOpen] = useState(false);
+  const [activeLeftPanel, setActiveLeftPanel] = useState(null);
   const [rightPanelOpen, setRightPanelOpen] = useState(false);
   const [rightTab, setRightTab] = useState('prompts');
   const [helpOpen, setHelpOpen] = useState(false);
@@ -169,6 +175,8 @@ function AppInner({ onLogout }) {
   const [keybindingsOpen, setKeybindingsOpen] = useState(false);
   const [pluginsOpen, setPluginsOpen] = useState(false);
   const [analyticsOpen, setAnalyticsOpen] = useState(false);
+  const [cmdPaletteOpen, setCmdPaletteOpen] = useState(false);
+  const { setPalette, paletteName } = useTheme();
   const { macros, createMacro, deleteMacro } = useMacros();
   const { activeData } = useContext(WorkspaceContext);
 
@@ -221,6 +229,60 @@ function AppInner({ onLogout }) {
 
   useKeyboardShortcuts(shortcutActions);
 
+  useEffect(() => {
+    const handler = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        setCmdPaletteOpen((o) => !o);
+      }
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, []);
+
+  const cmdActions = useMemo(() => {
+    const actions = [
+      { id: 'add-terminal', label: 'New Terminal', category: 'Terminals', shortcut: 'Ctrl+T', onAction: () => window.dispatchEvent(new Event('flowcode:addTerminal')) },
+      { id: 'close-terminal', label: 'Close Terminal', category: 'Terminals', shortcut: 'Ctrl+W', onAction: () => window.dispatchEvent(new Event('flowcode:closeTerminal')) },
+      { id: 'cycle-focus', label: 'Cycle Focus', category: 'Terminals', shortcut: 'Ctrl+Tab', onAction: () => window.dispatchEvent(new Event('flowcode:cycleFocus')) },
+      { id: 'settings', label: 'Open Settings', category: 'Navigation', shortcut: 'Ctrl+,', onAction: () => setSettingsOpen(true) },
+      { id: 'analytics', label: 'Reports & Analytics', category: 'Navigation', onAction: () => setAnalyticsOpen(true) },
+      { id: 'help', label: 'Help Guide', category: 'Navigation', onAction: () => setHelpOpen(true) },
+      { id: 'history', label: 'Session History', category: 'Navigation', onAction: () => setHistoryOpen(true) },
+      { id: 'keybindings', label: 'Keyboard Shortcuts', category: 'Navigation', onAction: () => setKeybindingsOpen(true) },
+      { id: 'plugins', label: 'Plugins', category: 'Navigation', onAction: () => setPluginsOpen(true) },
+      { id: 'prompts', label: 'Prompt Templates', category: 'Panels', onAction: () => { setRightPanelOpen(true); setRightTab('prompts'); } },
+      { id: 'commands', label: 'Command Library', category: 'Panels', onAction: () => { setRightPanelOpen(true); setRightTab('commands'); } },
+      { id: 'git', label: 'Toggle Git Panel', category: 'Panels', onAction: () => setActiveLeftPanel(p => p === 'git' ? null : 'git') },
+      { id: 'tasks', label: 'Toggle Task Board', category: 'Panels', onAction: () => setActiveLeftPanel(p => p === 'tasks' ? null : 'tasks') },
+      { id: 'memory', label: 'Toggle Memory Panel', category: 'Panels', onAction: () => setActiveLeftPanel(p => p === 'memory' ? null : 'memory') },
+      { id: 'github', label: 'Toggle GitHub Panel', category: 'Panels', onAction: () => setActiveLeftPanel(p => p === 'github' ? null : 'github') },
+      { id: 'danger-toggle', label: 'Toggle Danger Mode', category: 'Mode', onAction: () => setDangerFlags((prev) => ({ ...prev, global: !prev.global })) },
+    ];
+
+    // Layout actions
+    const LAYOUTS = [
+      { id: '1x1', label: '1' }, { id: '2x1', label: '2' }, { id: '1x2', label: '1x2' },
+      { id: '3x1', label: '3' }, { id: '2x2', label: '2x2' }, { id: '3x2', label: '3x2' },
+      { id: '4x2', label: '4x2' }, { id: '3x3', label: '3x3' }, { id: '4x4', label: '4x4' },
+    ];
+    LAYOUTS.forEach((l) => {
+      actions.push({ id: `layout-${l.id}`, label: `Layout: ${l.label}`, category: 'Layout', onAction: () => window.dispatchEvent(new CustomEvent('flowcode:setLayout', { detail: l.id })) });
+    });
+
+    // Room actions
+    WORKSPACE_ROOMS.forEach((room) => {
+      actions.push({ id: `room-${room.id}`, label: `Room: ${room.name}`, category: 'Rooms', onAction: () => window.dispatchEvent(new CustomEvent('flowcode:applyRoom', { detail: room })) });
+    });
+
+    // Palette actions
+    Object.keys(PALETTES).forEach((name) => {
+      actions.push({ id: `palette-${name}`, label: `Theme: ${name.charAt(0).toUpperCase() + name.slice(1)}`, category: 'Themes', onAction: () => setPalette(name) });
+    });
+
+    return actions;
+  }, [setPalette]);
+
   const handleInsertSnippet = useCallback((text) => {
     window.dispatchEvent(new CustomEvent('flowcode:insertSnippet', { detail: text }));
   }, []);
@@ -229,13 +291,19 @@ function AppInner({ onLogout }) {
     <div style={{
       fontFamily: FONTS.body,
       background: colors.bg.base,
-      color: '#fff',
+      color: colors.text.primary,
       width: '100vw',
       height: '100vh',
       overflow: 'hidden',
       display: 'flex',
       flexDirection: 'column',
+      position: 'relative',
     }}>
+        {/* Gradient mesh background */}
+        {colors.gradient?.mesh && colors.gradient.mesh !== 'none' && (
+          <div className="fc-mesh-bg" style={{ backgroundImage: colors.gradient.mesh }} />
+        )}
+
         <UpdateNotification />
         <Header
           onOpenSettings={() => setSettingsOpen(true)}
@@ -251,23 +319,47 @@ function AppInner({ onLogout }) {
         />
 
         <div style={{
-          flex: 1, padding: '12px 16px', display: 'flex', flexDirection: 'column',
-          gap: 8, overflow: 'hidden', minHeight: 0,
+          flex: 1, padding: '6px 10px', display: 'flex', flexDirection: 'column',
+          gap: 4, overflow: 'hidden', minHeight: 0, position: 'relative', zIndex: 1,
         }}>
           <ErrorBoundary name="Usage Panel">
             <UsagePanel />
           </ErrorBoundary>
 
           <div style={{ display: 'flex', gap: 0, flex: 1, minHeight: 0, overflow: 'hidden' }}>
-            <ErrorBoundary name="File Activity">
-              <FileActivity
-                cwd={focusedCwd}
-                open={gitOpen}
-                onToggle={() => setGitOpen((o) => !o)}
-              />
-            </ErrorBoundary>
+            <SideNav
+              activePanel={activeLeftPanel}
+              onSelect={(id) => {
+                if (id === 'settings') { setSettingsOpen(true); return; }
+                setActiveLeftPanel(id);
+              }}
+            />
 
-            <div style={{ flex: 1, minWidth: 0, padding: '0 6px', transition: 'all 0.25s ease' }}>
+            {activeLeftPanel && (
+              <div style={{
+                width: 280, minWidth: 280, maxWidth: 280,
+                display: 'flex', flexDirection: 'column',
+                background: colors.bg.glass || colors.bg.raised,
+                borderRight: `1px solid ${colors.border.subtle}`,
+                borderRadius: '0 10px 10px 0',
+                overflow: 'hidden',
+                transition: 'width .2s ease',
+              }} className="fc-glass">
+                <ErrorBoundary name="Left Panel">
+                  {activeLeftPanel === 'tasks' && (
+                    <TaskBoard open={true} onToggle={() => setActiveLeftPanel(null)} />
+                  )}
+                  {activeLeftPanel === 'memory' && (
+                    <MemoryPanel open={true} onToggle={() => setActiveLeftPanel(null)} />
+                  )}
+                  {activeLeftPanel === 'github' && (
+                    <GitHubPanel open={true} onToggle={() => setActiveLeftPanel(null)} />
+                  )}
+                </ErrorBoundary>
+              </div>
+            )}
+
+            <div style={{ flex: 1, minWidth: 0, padding: '0 6px', transition: 'all 0.25s ease', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
               <ErrorBoundary name="Terminal Grid">
                 <TerminalGrid
                   dangerFlags={dangerFlags}
@@ -296,14 +388,15 @@ function AppInner({ onLogout }) {
           </ErrorBoundary>
         </div>
 
-        <footer style={{
-          padding: '6px 24px', borderTop: `1px solid ${colors.border.subtle}`,
+        <footer className="fc-glass" style={{
+          padding: '3px 16px', borderTop: `1px solid ${colors.border.subtle}`,
           display: 'flex', justifyContent: 'space-between',
-          fontSize: 10, color: colors.text.dim, fontFamily: FONTS.mono,
-          background: colors.bg.surface, flexShrink: 0,
+          fontSize: 9, color: colors.text.ghost, fontFamily: FONTS.mono,
+          background: colors.bg.glass || colors.bg.surface, flexShrink: 0,
+          position: 'relative', zIndex: 1,
         }}>
           <span>FlowCode v0.1.0</span>
-          <span>DutchMade Co.</span>
+          <span style={{ letterSpacing: 0.5 }}>DutchMade Co.</span>
         </footer>
 
         <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} />
@@ -314,6 +407,7 @@ function AppInner({ onLogout }) {
         <KeybindingsPanel open={keybindingsOpen} onClose={() => setKeybindingsOpen(false)} />
         <PluginManagerPanel open={pluginsOpen} onClose={() => setPluginsOpen(false)} />
         <AnalyticsDashboard open={analyticsOpen} onClose={() => setAnalyticsOpen(false)} />
+        <CommandPalette open={cmdPaletteOpen} onClose={() => setCmdPaletteOpen(false)} actions={cmdActions} />
     </div>
   );
 }

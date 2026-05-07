@@ -44,6 +44,7 @@ export default function PopoutTerminal() {
       const mod = event.ctrlKey || event.metaKey;
       if (mod && event.key === 'v') return false;
       if (mod && event.key === 'c' && term.hasSelection()) return false;
+      if (mod && event.key === 'k') return false;
       return true;
     });
 

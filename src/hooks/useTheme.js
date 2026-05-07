@@ -7,6 +7,8 @@ export function useTheme() {
     colors: ctx.theme,
     terminalTheme: ctx.terminalTheme,
     themeName: ctx.themeName,
+    paletteName: ctx.paletteName,
     toggleTheme: ctx.toggleTheme,
+    setPalette: ctx.setPalette,
   };
 }
