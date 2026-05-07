@@ -98,6 +98,19 @@ contextBridge.exposeInMainWorld('flowcode', {
     save: (tasks) => ipcRenderer.invoke('tasks:save', tasks),
   },
 
+  notify: {
+    registerToken: (token) => ipcRenderer.invoke('notify:registerToken', token),
+    removeToken: (token) => ipcRenderer.invoke('notify:removeToken', token),
+    getTokens: () => ipcRenderer.invoke('notify:getTokens'),
+    setEnabled: (enabled) => ipcRenderer.invoke('notify:setEnabled', enabled),
+    updateTerminalMeta: (id, label, workspace) => ipcRenderer.invoke('notify:updateTerminalMeta', { id, label, workspace }),
+    onEvent: (callback) => {
+      const handler = (_, event) => callback(event);
+      ipcRenderer.on('notify:event', handler);
+      return () => ipcRenderer.removeListener('notify:event', handler);
+    },
+  },
+
   plugins: {
     list: () => ipcRenderer.invoke('plugins:list'),
     load: (name) => ipcRenderer.invoke('plugins:load', name),
@@ -118,6 +131,14 @@ contextBridge.exposeInMainWorld('flowcode', {
     status: (cwd) => ipcRenderer.invoke('git:status', { cwd }),
     diff: (cwd, file) => ipcRenderer.invoke('git:diff', { cwd, file }),
     branch: (cwd) => ipcRenderer.invoke('git:branch', { cwd }),
+  },
+
+  fs: {
+    readDir: (dirPath) => ipcRenderer.invoke('fs:readDir', dirPath),
+    readFile: (filePath) => ipcRenderer.invoke('fs:readFile', filePath),
+    writeFile: (filePath, content) => ipcRenderer.invoke('fs:writeFile', { filePath, content }),
+    stat: (filePath) => ipcRenderer.invoke('fs:stat', filePath),
+    exists: (filePath) => ipcRenderer.invoke('fs:exists', filePath),
   },
 
   github: {
@@ -185,9 +206,11 @@ contextBridge.exposeInMainWorld('flowcode', {
     close: () => ipcRenderer.send('window:close'),
     isMaximized: () => ipcRenderer.invoke('window:isMaximized'),
     popout: (terminalId, bounds) => ipcRenderer.invoke('window:popout', { terminalId, bounds }),
+    popoutPanel: (panel, bounds) => ipcRenderer.invoke('window:popoutPanel', { panel, bounds }),
     closePopout: (windowId) => ipcRenderer.invoke('window:closePopout', windowId),
     isPopout: () => new URLSearchParams(window.location.search).has('popout'),
     getPopoutTerminalId: () => new URLSearchParams(window.location.search).get('terminalId'),
+    getPopoutPanel: () => new URLSearchParams(window.location.search).get('panel'),
   },
 
   platform: process.platform,

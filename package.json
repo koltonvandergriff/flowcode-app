@@ -8,11 +8,13 @@
   "type": "module",
   "scripts": {
     "dev": "concurrently -k \"vite\" \"wait-on http://localhost:5173 && electron .\"",
+    "dev:fresh": "concurrently -k \"vite\" \"wait-on http://localhost:5173 && electron . --fresh\"",
     "build": "vite build && electron-builder",
     "start": "electron .",
     "postinstall": "node scripts/rebuild-pty.js"
   },
   "dependencies": {
+    "@monaco-editor/react": "^4.7.0",
     "@supabase/supabase-js": "^2.105.3",
     "codeburn": "^0.9.6",
     "electron-store": "^10.0.0",

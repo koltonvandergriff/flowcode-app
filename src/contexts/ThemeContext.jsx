@@ -38,7 +38,13 @@ export function ThemeProvider({ children }) {
     }
   }, [updateSetting]);
 
-  const theme = themeName === 'dark' ? (PALETTES[paletteName] || DARK_COLORS) : LIGHT_COLORS;
+  const darkPalette = PALETTES[paletteName] || DARK_COLORS;
+  const theme = themeName === 'dark' ? darkPalette : {
+    ...LIGHT_COLORS,
+    accent: darkPalette.accent,
+    gradient: { ...LIGHT_COLORS.gradient, primary: darkPalette.gradient.primary },
+    border: { ...LIGHT_COLORS.border, active: darkPalette.accent.primary, focus: darkPalette.accent.primary + '40' },
+  };
   const terminalTheme = themeName === 'dark' ? (PALETTE_TERMINALS[paletteName] || PALETTE_TERMINALS.aurora) : LIGHT_TERMINAL_THEME;
 
   return (

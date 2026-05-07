@@ -1,5 +1,6 @@
 import { useState, useContext, useEffect } from 'react';
 import { FONTS, PROVIDERS } from '../lib/constants';
+import { PALETTES } from '../lib/themes';
 import { useTheme } from '../hooks/useTheme';
 import { SettingsContext } from '../contexts/SettingsContext';
 
@@ -68,8 +69,8 @@ function StatusDot({ active, colors }) {
   );
 }
 
-export default function SettingsPanel({ open, onClose }) {
-  const { colors } = useTheme();
+export default function SettingsPanel({ open, onClose, onLogout }) {
+  const { colors, paletteName, setPalette, themeName, toggleTheme } = useTheme();
   const { settings, updateSetting } = useContext(SettingsContext);
   const [cwdInput, setCwdInput] = useState(settings?.defaultCwd || '');
   const [tab, setTab] = useState('general');
@@ -138,6 +139,7 @@ export default function SettingsPanel({ open, onClose }) {
 
   const tabs = [
     { id: 'general', label: 'GENERAL' },
+    { id: 'appearance', label: 'APPEARANCE' },
     { id: 'apikeys', label: 'API KEYS' },
     { id: 'github', label: 'GITHUB' },
   ];
@@ -282,6 +284,101 @@ export default function SettingsPanel({ open, onClose }) {
                     <div key={key} style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
                       <span style={{ color: colors.accent.purple, fontWeight: 600 }}>{key}</span>
                       <span style={{ color: colors.text.dim }}>{desc}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Logout */}
+              <div style={{ paddingTop: 16, borderTop: `1px solid ${colors.border.subtle}` }}>
+                <button onClick={() => { onClose(); onLogout?.(); }} style={{
+                  all: 'unset', cursor: 'pointer', display: 'flex', alignItems: 'center',
+                  justifyContent: 'center', gap: 8, width: '100%', padding: '10px 0',
+                  borderRadius: 8, fontSize: 11, fontWeight: 700, fontFamily: fc,
+                  letterSpacing: 1, color: colors.status.error || '#E74C3C',
+                  border: `1px solid ${colors.status.error || '#E74C3C'}40`,
+                  background: `${colors.status.error || '#E74C3C'}08`,
+                  transition: 'all .2s',
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = `${colors.status.error || '#E74C3C'}15`; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = `${colors.status.error || '#E74C3C'}08`; }}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" />
+                    <polyline points="16 17 21 12 16 7" />
+                    <line x1="21" y1="12" x2="9" y2="12" />
+                  </svg>
+                  LOG OUT
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Appearance tab */}
+          {tab === 'appearance' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+              <div>
+                <label style={{ fontSize: 11, fontWeight: 700, color: colors.text.muted, fontFamily: fc, letterSpacing: 1, display: 'block', marginBottom: 12 }}>
+                  THEME MODE
+                </label>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  {['dark', 'light'].map(mode => (
+                    <button key={mode} onClick={() => { if (themeName !== mode) toggleTheme(); }} style={{
+                      all: 'unset', cursor: 'pointer', flex: 1, padding: '10px 16px',
+                      borderRadius: 8, textAlign: 'center', fontSize: 12, fontWeight: 600,
+                      fontFamily: fc, letterSpacing: 0.5, transition: 'all .2s',
+                      background: themeName === mode ? (colors.accent.primary + '20') : colors.bg.surface,
+                      border: `1px solid ${themeName === mode ? colors.accent.primary : colors.border.subtle}`,
+                      color: themeName === mode ? colors.accent.primary : colors.text.dim,
+                    }}>
+                      {mode === 'dark' ? '\u{1F319} Dark' : '☀️ Light'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label style={{ fontSize: 11, fontWeight: 700, color: colors.text.muted, fontFamily: fc, letterSpacing: 1, display: 'block', marginBottom: 12 }}>
+                  COLOR PALETTE
+                </label>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+                  {Object.entries(PALETTES).map(([key, palette]) => {
+                    const active = paletteName === key;
+                    return (
+                      <button key={key} onClick={() => setPalette(key)} style={{
+                        all: 'unset', cursor: 'pointer', padding: '10px 12px',
+                        borderRadius: 8, transition: 'all .2s',
+                        background: active ? (palette.accent.primary + '18') : colors.bg.surface,
+                        border: `1.5px solid ${active ? palette.accent.primary : colors.border.subtle}`,
+                      }}>
+                        <div style={{ display: 'flex', gap: 3, marginBottom: 6 }}>
+                          {[palette.accent.primary, palette.accent.secondary, palette.accent.green, palette.accent.pink].map((c, i) => (
+                            <div key={i} style={{ width: 12, height: 12, borderRadius: '50%', background: c }} />
+                          ))}
+                        </div>
+                        <div style={{
+                          fontSize: 10, fontWeight: 700, fontFamily: fc, letterSpacing: 0.5,
+                          color: active ? palette.accent.primary : colors.text.dim,
+                          textTransform: 'capitalize',
+                        }}>{key}</div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div style={{
+                padding: '12px 14px', borderRadius: 8,
+                background: colors.bg.surface, border: `1px solid ${colors.border.subtle}`,
+              }}>
+                <div style={{ fontSize: 10, fontWeight: 600, color: colors.text.muted, fontFamily: fc, letterSpacing: 1, marginBottom: 8 }}>
+                  PREVIEW
+                </div>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  {['primary', 'secondary', 'green', 'purple', 'amber', 'cyan', 'pink', 'blue'].map(key => (
+                    <div key={key} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
+                      <div style={{ width: 24, height: 24, borderRadius: 6, background: colors.accent[key] }} />
+                      <span style={{ fontSize: 8, color: colors.text.ghost, fontFamily: fc }}>{key}</span>
                     </div>
                   ))}
                 </div>

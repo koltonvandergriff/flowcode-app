@@ -582,7 +582,12 @@ export default function TerminalPane({
           // Dev server URL detection
           const detectedUrl = detectDevServerUrl(outputBufRef.current);
           if (detectedUrl) {
-            setPreviewUrl((prev) => prev !== detectedUrl ? detectedUrl : prev);
+            setPreviewUrl((prev) => {
+              if (prev !== detectedUrl) {
+                window.dispatchEvent(new CustomEvent('flowcode:openInBrowser', { detail: { url: detectedUrl, terminalId: id } }));
+              }
+              return prev !== detectedUrl ? detectedUrl : prev;
+            });
           }
 
           if (optionScanRef.current) clearTimeout(optionScanRef.current);

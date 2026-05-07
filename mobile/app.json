@@ -1,0 +1,36 @@
+{
+  "expo": {
+    "name": "FlowCode",
+    "slug": "flowcode-mobile",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "scheme": "flowcode",
+    "splash": {
+      "backgroundColor": "#0c101a"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.dutchmade.flowcode"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#0c101a"
+      },
+      "package": "com.dutchmade.flowcode"
+    },
+    "plugins": [
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#7c6aff",
+          "sounds": [],
+          "defaultChannel": "terminal-events"
+        }
+      ],
+      "expo-asset"
+    ]
+  }
+}

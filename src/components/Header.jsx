@@ -29,7 +29,7 @@ function MenuItem({ icon, label, onClick, colors, accent }) {
   );
 }
 
-export default function Header({ onOpenSettings, onOpenHelp, onOpenFeedback, onOpenHistory, onOpenSubscription, onOpenKeybindings, onOpenPlugins, onOpenAnalytics, onOpenPrompts, onOpenCommands }) {
+export default function Header({ onOpenSettings, onOpenHelp, onOpenFeedback, onOpenHistory, onOpenSubscription, onOpenKeybindings, onOpenPlugins, onOpenAnalytics, onOpenNotifications, onOpenPrompts, onOpenCommands }) {
   const { colors, themeName, toggleTheme } = useTheme();
   const isElectron = !!window.flowcode?.window;
   const [menuOpen, setMenuOpen] = useState(false);
@@ -135,6 +135,8 @@ export default function Header({ onOpenSettings, onOpenHelp, onOpenFeedback, onO
 
               <MenuDivider colors={colors} />
 
+              <MenuItem colors={colors} label="Notifications & Devices" onClick={() => handleMenuItem(onOpenNotifications)}
+                icon={<svg {...menuIconProps}><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 01-3.46 0" /></svg>} />
               <MenuItem colors={colors} label="Plugins" onClick={() => handleMenuItem(onOpenPlugins)}
                 icon={<svg {...menuIconProps}><rect x="2" y="6" width="20" height="12" rx="2" /><path d="M12 12h.01" /><path d="M17 12h.01" /><path d="M7 12h.01" /></svg>} />
               <MenuItem colors={colors} label="Keyboard Shortcuts" onClick={() => handleMenuItem(onOpenKeybindings)}

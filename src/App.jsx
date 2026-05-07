@@ -34,6 +34,10 @@ import TaskBoard from './components/TaskBoard';
 import MemoryPanel from './components/MemoryPanel';
 import GitHubPanel from './components/GitHubPanel';
 import SideNav from './components/SideNav';
+import BrowserPanel from './components/BrowserPanel';
+import CodeEditorPanel from './components/CodeEditorPanel';
+import NotificationsPanel from './components/NotificationsPanel';
+import ResizeHandle from './components/ResizeHandle';
 import { isAuthenticated, logout } from './lib/authService';
 
 const RIGHT_PANEL_WIDTH = 280;
@@ -167,6 +171,9 @@ function AppInner({ onLogout }) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [activeLeftPanel, setActiveLeftPanel] = useState(null);
   const [rightPanelOpen, setRightPanelOpen] = useState(false);
+  const [browserOpen, setBrowserOpen] = useState(false);
+  const [leftPanelWidth, setLeftPanelWidth] = useState(null);
+  const [browserWidth, setBrowserWidth] = useState(null);
   const [rightTab, setRightTab] = useState('prompts');
   const [helpOpen, setHelpOpen] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
@@ -175,6 +182,7 @@ function AppInner({ onLogout }) {
   const [keybindingsOpen, setKeybindingsOpen] = useState(false);
   const [pluginsOpen, setPluginsOpen] = useState(false);
   const [analyticsOpen, setAnalyticsOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [cmdPaletteOpen, setCmdPaletteOpen] = useState(false);
   const { setPalette, paletteName } = useTheme();
   const { macros, createMacro, deleteMacro } = useMacros();
@@ -257,6 +265,9 @@ function AppInner({ onLogout }) {
       { id: 'tasks', label: 'Toggle Task Board', category: 'Panels', onAction: () => setActiveLeftPanel(p => p === 'tasks' ? null : 'tasks') },
       { id: 'memory', label: 'Toggle Memory Panel', category: 'Panels', onAction: () => setActiveLeftPanel(p => p === 'memory' ? null : 'memory') },
       { id: 'github', label: 'Toggle GitHub Panel', category: 'Panels', onAction: () => setActiveLeftPanel(p => p === 'github' ? null : 'github') },
+      { id: 'code', label: 'Toggle Code Editor', category: 'Panels', onAction: () => setActiveLeftPanel(p => p === 'code' ? null : 'code') },
+      { id: 'browser', label: 'Toggle Browser', category: 'Panels', onAction: () => setBrowserOpen(o => !o) },
+      { id: 'notifications', label: 'Open Notifications', category: 'Navigation', onAction: () => setNotificationsOpen(true) },
       { id: 'danger-toggle', label: 'Toggle Danger Mode', category: 'Mode', onAction: () => setDangerFlags((prev) => ({ ...prev, global: !prev.global })) },
     ];
 
@@ -287,6 +298,12 @@ function AppInner({ onLogout }) {
     window.dispatchEvent(new CustomEvent('flowcode:insertSnippet', { detail: text }));
   }, []);
 
+  useEffect(() => {
+    const handler = () => setBrowserOpen(true);
+    window.addEventListener('flowcode:openInBrowser', handler);
+    return () => window.removeEventListener('flowcode:openInBrowser', handler);
+  }, []);
+
   return (
     <div style={{
       fontFamily: FONTS.body,
@@ -314,6 +331,7 @@ function AppInner({ onLogout }) {
           onOpenKeybindings={() => setKeybindingsOpen(true)}
           onOpenPlugins={() => setPluginsOpen(true)}
           onOpenAnalytics={() => setAnalyticsOpen(true)}
+          onOpenNotifications={() => setNotificationsOpen(true)}
           onOpenPrompts={() => { setRightPanelOpen(true); setRightTab('prompts'); }}
           onOpenCommands={() => { setRightPanelOpen(true); setRightTab('commands'); }}
         />
@@ -332,18 +350,20 @@ function AppInner({ onLogout }) {
               onSelect={(id) => {
                 if (id === 'settings') { setSettingsOpen(true); return; }
                 setActiveLeftPanel(id);
+                setLeftPanelWidth(null);
               }}
             />
 
-            {activeLeftPanel && (
+            {activeLeftPanel && (<>
               <div style={{
-                width: 280, minWidth: 280, maxWidth: 280,
+                width: leftPanelWidth || (activeLeftPanel === 'code' ? 500 : 280),
+                minWidth: activeLeftPanel === 'code' ? 300 : 220,
+                maxWidth: activeLeftPanel === 'code' ? 900 : 500,
                 display: 'flex', flexDirection: 'column',
                 background: colors.bg.glass || colors.bg.raised,
                 borderRight: `1px solid ${colors.border.subtle}`,
                 borderRadius: '0 10px 10px 0',
                 overflow: 'hidden',
-                transition: 'width .2s ease',
               }} className="fc-glass">
                 <ErrorBoundary name="Left Panel">
                   {activeLeftPanel === 'tasks' && (
@@ -355,11 +375,22 @@ function AppInner({ onLogout }) {
                   {activeLeftPanel === 'github' && (
                     <GitHubPanel open={true} onToggle={() => setActiveLeftPanel(null)} />
                   )}
+                  {activeLeftPanel === 'code' && (
+                    <CodeEditorPanel open={true} onToggle={() => setActiveLeftPanel(null)} />
+                  )}
                 </ErrorBoundary>
               </div>
-            )}
+              <ResizeHandle direction="vertical" onResize={(delta) => {
+                setLeftPanelWidth(w => {
+                  const current = w || (activeLeftPanel === 'code' ? 500 : 280);
+                  const min = activeLeftPanel === 'code' ? 300 : 220;
+                  const max = activeLeftPanel === 'code' ? 900 : 500;
+                  return Math.max(min, Math.min(max, current + delta));
+                });
+              }} />
+            </>)}
 
-            <div style={{ flex: 1, minWidth: 0, padding: '0 6px', transition: 'all 0.25s ease', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+            <div style={{ flex: 1, minWidth: 200, padding: '0 6px', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
               <ErrorBoundary name="Terminal Grid">
                 <TerminalGrid
                   dangerFlags={dangerFlags}
@@ -367,6 +398,22 @@ function AppInner({ onLogout }) {
                 />
               </ErrorBoundary>
             </div>
+
+            {browserOpen && (
+              <ResizeHandle direction="vertical" onResize={(delta) => {
+                setBrowserWidth(w => {
+                  const current = w || 500;
+                  return Math.max(300, Math.min(900, current - delta));
+                });
+              }} />
+            )}
+            <ErrorBoundary name="Browser Panel">
+              <BrowserPanel
+                open={browserOpen}
+                onToggle={() => setBrowserOpen(o => !o)}
+                width={browserWidth}
+              />
+            </ErrorBoundary>
 
             <ErrorBoundary name="Right Sidebar">
               <RightSidebarPanel
@@ -399,7 +446,7 @@ function AppInner({ onLogout }) {
           <span style={{ letterSpacing: 0.5 }}>DutchMade Co.</span>
         </footer>
 
-        <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+        <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} onLogout={onLogout} />
         <HelpGuide open={helpOpen} onClose={() => setHelpOpen(false)} />
         <FeedbackPanel open={feedbackOpen} onClose={() => setFeedbackOpen(false)} />
         <SessionHistory open={historyOpen} onClose={() => setHistoryOpen(false)} />
@@ -407,6 +454,7 @@ function AppInner({ onLogout }) {
         <KeybindingsPanel open={keybindingsOpen} onClose={() => setKeybindingsOpen(false)} />
         <PluginManagerPanel open={pluginsOpen} onClose={() => setPluginsOpen(false)} />
         <AnalyticsDashboard open={analyticsOpen} onClose={() => setAnalyticsOpen(false)} />
+        <NotificationsPanel open={notificationsOpen} onClose={() => setNotificationsOpen(false)} />
         <CommandPalette open={cmdPaletteOpen} onClose={() => setCmdPaletteOpen(false)} actions={cmdActions} />
     </div>
   );
@@ -423,6 +471,18 @@ function AuthGate() {
   );
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('fresh') === '1') {
+      localStorage.removeItem('flowcode_auth_token');
+      localStorage.removeItem('flowcode_auth_user');
+      sessionStorage.removeItem('flowcode_auth_token');
+      sessionStorage.removeItem('flowcode_auth_user');
+      localStorage.removeItem('flowcode_onboarding_complete');
+      localStorage.removeItem('flowcode_plan_selected');
+      setOnboarded(false);
+      setPlanSelected(false);
+    }
+
     isAuthenticated().then((result) => {
       setAuthed(result);
       setAuthChecked(true);
@@ -454,9 +514,26 @@ function AuthGate() {
   );
 }
 
+function PopoutPanel() {
+  const panel = window.flowcode?.window?.getPopoutPanel?.();
+
+  return (
+    <SettingsProvider>
+      <ThemeProvider>
+        <div style={{ width: '100%', height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          <div style={{ height: 38, WebkitAppRegion: 'drag', flexShrink: 0 }} />
+          {panel === 'code' && <CodeEditorPanel open={true} onToggle={() => window.close()} />}
+          {panel === 'browser' && <BrowserPanel open={true} onToggle={() => window.close()} />}
+        </div>
+      </ThemeProvider>
+    </SettingsProvider>
+  );
+}
+
 export default function App() {
-  // If this is a popout window, render only the terminal pane
   if (window.flowcode?.window?.isPopout?.()) {
+    const panel = window.flowcode?.window?.getPopoutPanel?.();
+    if (panel) return <PopoutPanel />;
     return <PopoutTerminal />;
   }
 

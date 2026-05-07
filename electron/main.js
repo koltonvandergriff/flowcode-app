@@ -1,6 +1,6 @@
 import { app, BrowserWindow, ipcMain, screen, dialog, Tray, Menu, nativeImage, shell } from 'electron';
 import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
+import { dirname, join, extname } from 'path';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 import { PtyManager } from './ptyManager.js';
@@ -14,7 +14,8 @@ import { initAutoUpdater } from './autoUpdater.js';
 import { PluginManager } from './pluginManager.js';
 import { ClaudeUsageWatcher } from './claudeUsageWatcher.js';
 import { MemoryStore } from './memoryStore.js';
-import { readFileSync, writeFileSync } from 'fs';
+import { TerminalNotifier } from './terminalNotifier.js';
+import { readFileSync, writeFileSync, readdirSync, statSync, existsSync } from 'fs';
 
 const execFileAsync = promisify(execFile);
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -39,6 +40,9 @@ crashReporter.init();
 const pluginManager = new PluginManager(settingsStore);
 const claudeUsageWatcher = new ClaudeUsageWatcher(costTracker, settingsStore);
 const memoryStore = new MemoryStore();
+const terminalNotifier = new TerminalNotifier(envStore, (event) => {
+  mainWindow?.webContents.send('notify:event', event);
+});
 
 function createSplashWindow() {
   splashWindow = new BrowserWindow({
@@ -88,17 +92,20 @@ function createWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,
+      webviewTag: true,
     },
   });
 
   const savedBounds = sessionStore.getWindowBounds();
   if (!savedBounds) mainWindow.maximize();
 
+  const freshMode = process.argv.includes('--fresh') || process.env.FLOWCODE_FRESH === '1';
+
   if (isDev) {
-    mainWindow.loadURL('http://localhost:5173');
+    mainWindow.loadURL('http://localhost:5173' + (freshMode ? '?fresh=1' : ''));
     mainWindow.webContents.openDevTools({ mode: 'detach' });
   } else {
-    mainWindow.loadFile(join(__dirname, '..', 'dist', 'index.html'));
+    mainWindow.loadFile(join(__dirname, '..', 'dist', 'index.html'), freshMode ? { query: { fresh: '1' } } : {});
   }
 
   // When main window is ready, fade out splash then show main window
@@ -150,6 +157,8 @@ ipcMain.handle('terminal:spawn', (_, opts) => {
   const info = ptyManager.spawn(id, opts);
 
   if (!info.existing) {
+    terminalNotifier.registerTerminal(id, { label: opts.label || id, workspace: opts.workspace || 'Default' });
+
     ptyManager.onData(id, (data) => {
       mainWindow?.webContents.send('terminal:data', { id, data });
       for (const [, win] of childWindows) {
@@ -157,6 +166,7 @@ ipcMain.handle('terminal:spawn', (_, opts) => {
           win.webContents.send('terminal:data', { id, data });
         }
       }
+      terminalNotifier.processOutput(id, data);
     });
 
     ptyManager.onExit(id, (exitCode) => {
@@ -166,6 +176,7 @@ ipcMain.handle('terminal:spawn', (_, opts) => {
           win.webContents.send('terminal:exit', { id, exitCode });
         }
       }
+      terminalNotifier.processExit(id, exitCode);
     });
   }
 
@@ -187,6 +198,24 @@ ipcMain.on('terminal:kill', (_, { id }) => {
 
 ipcMain.handle('terminal:list', () => {
   return ptyManager.list();
+});
+
+// --- Notification IPC ---
+
+ipcMain.handle('notify:registerToken', (_, token) => {
+  terminalNotifier.registerPushToken(token);
+});
+ipcMain.handle('notify:removeToken', (_, token) => {
+  terminalNotifier.removePushToken(token);
+});
+ipcMain.handle('notify:getTokens', () => {
+  return terminalNotifier.getPushTokens();
+});
+ipcMain.handle('notify:setEnabled', (_, enabled) => {
+  terminalNotifier.setEnabled(enabled);
+});
+ipcMain.handle('notify:updateTerminalMeta', (_, { id, label, workspace }) => {
+  terminalNotifier.updateTerminalMeta(id, { label, workspace });
 });
 
 // --- Workspace IPC ---
@@ -387,6 +416,48 @@ ipcMain.handle('git:branch', async (_, { cwd }) => {
   }
 });
 
+// --- File System IPC ---
+
+ipcMain.handle('fs:readDir', async (_, dirPath) => {
+  try {
+    const entries = readdirSync(dirPath, { withFileTypes: true });
+    return entries.map(e => ({
+      name: e.name,
+      isDirectory: e.isDirectory(),
+      path: join(dirPath, e.name),
+      size: e.isDirectory() ? 0 : (() => { try { return statSync(join(dirPath, e.name)).size; } catch { return 0; } })(),
+      ext: e.isDirectory() ? '' : extname(e.name).slice(1),
+    })).sort((a, b) => {
+      if (a.isDirectory !== b.isDirectory) return a.isDirectory ? -1 : 1;
+      return a.name.localeCompare(b.name);
+    });
+  } catch { return []; }
+});
+
+ipcMain.handle('fs:readFile', async (_, filePath) => {
+  try {
+    return readFileSync(filePath, 'utf-8');
+  } catch (err) { throw new Error(err.message); }
+});
+
+ipcMain.handle('fs:writeFile', async (_, { filePath, content }) => {
+  try {
+    writeFileSync(filePath, content, 'utf-8');
+    return true;
+  } catch (err) { throw new Error(err.message); }
+});
+
+ipcMain.handle('fs:stat', async (_, filePath) => {
+  try {
+    const s = statSync(filePath);
+    return { size: s.size, isDirectory: s.isDirectory(), modified: s.mtime.toISOString() };
+  } catch { return null; }
+});
+
+ipcMain.handle('fs:exists', async (_, filePath) => {
+  return existsSync(filePath);
+});
+
 // --- GitHub API IPC ---
 
 async function ghFetch(path, token) {
@@ -512,6 +583,49 @@ ipcMain.handle('window:popout', (_, { terminalId, bounds }) => {
     childWindows.delete(winId);
   });
 
+  return winId;
+});
+
+ipcMain.handle('window:popoutPanel', (_, { panel, bounds }) => {
+  const width = bounds?.width || 900;
+  const height = bounds?.height || 700;
+
+  const childWindow = new BrowserWindow({
+    width,
+    height,
+    minWidth: 400,
+    minHeight: 300,
+    title: `FlowCode — ${panel === 'code' ? 'Code Editor' : panel === 'browser' ? 'Browser' : panel}`,
+    backgroundColor: '#161729',
+    frame: false,
+    titleBarStyle: 'hidden',
+    titleBarOverlay: {
+      color: '#1a1b32',
+      symbolColor: '#6a6b85',
+      height: 38,
+    },
+    webPreferences: {
+      preload: join(__dirname, 'preload.cjs'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: false,
+      webviewTag: panel === 'browser',
+    },
+  });
+
+  const queryParams = `?popout=true&panel=${encodeURIComponent(panel)}`;
+
+  if (isDev) {
+    childWindow.loadURL(`http://localhost:5173${queryParams}`);
+  } else {
+    childWindow.loadFile(join(__dirname, '..', 'dist', 'index.html'), {
+      search: queryParams,
+    });
+  }
+
+  const winId = childWindow.id;
+  childWindows.set(winId, childWindow);
+  childWindow.on('closed', () => { childWindows.delete(winId); });
   return winId;
 });
 
