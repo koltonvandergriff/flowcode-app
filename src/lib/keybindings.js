@@ -10,6 +10,10 @@ export const DEFAULT_KEYBINDINGS = [
   { id: 'toggleDanger',  label: 'Toggle Danger',     defaultKey: 'Ctrl+Shift+D', category: 'Mode' },
   { id: 'cycleFocus',    label: 'Cycle Focus',       defaultKey: 'Ctrl+Tab',     category: 'Navigation' },
   { id: 'openSettings',  label: 'Open Settings',     defaultKey: 'Ctrl+,',       category: 'Navigation' },
+  { id: 'commandPalette', label: 'Command Palette',   defaultKey: 'Ctrl+Shift+P', category: 'Navigation' },
+  { id: 'toggleSidebar',  label: 'Toggle Sidebar',    defaultKey: 'Ctrl+B',       category: 'Navigation' },
+  { id: 'toggleBrowser',  label: 'Toggle Browser',    defaultKey: 'Ctrl+Shift+B', category: 'Navigation' },
+  { id: 'toggleCode',     label: 'Toggle Code Editor', defaultKey: 'Ctrl+Shift+E', category: 'Navigation' },
 ];
 
 function loadOverrides() {

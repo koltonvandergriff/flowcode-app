@@ -6,13 +6,11 @@ import { ToastProvider } from './contexts/ToastContext';
 import { WorkspaceProvider, WorkspaceContext } from './contexts/WorkspaceContext';
 import { SettingsProvider } from './contexts/SettingsContext';
 import { ThemeProvider } from './contexts/ThemeContext';
-import { useMacros } from './hooks/useMacros';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import ErrorBoundary from './components/ErrorBoundary';
 import Header from './components/Header';
 import TerminalGrid from './components/TerminalGrid';
 import CommandLibrary from './components/CommandLibrary';
-import MacroBar from './components/MacroBar';
 import UsagePanel from './components/UsagePanel';
 import SettingsPanel from './components/SettingsPanel';
 import FileActivity from './components/FileActivity';
@@ -157,6 +155,15 @@ function RightSidebarPanel({ open, onToggle, activeTab, onTabChange, onInsert })
 function AppInner({ onLogout }) {
   const { colors } = useTheme();
 
+  // Persistent layout state
+  const loadLayout = () => {
+    try {
+      const raw = localStorage.getItem('flowcode_layout');
+      return raw ? JSON.parse(raw) : {};
+    } catch { return {}; }
+  };
+  const savedLayout = useMemo(() => loadLayout(), []);
+
   useEffect(() => {
     const prevent = (e) => e.preventDefault();
     document.addEventListener('dragover', prevent);
@@ -169,12 +176,12 @@ function AppInner({ onLogout }) {
 
   const [dangerFlags, setDangerFlags] = useState({ global: false, perTerminal: {} });
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [activeLeftPanel, setActiveLeftPanel] = useState(null);
-  const [rightPanelOpen, setRightPanelOpen] = useState(false);
-  const [browserOpen, setBrowserOpen] = useState(false);
-  const [leftPanelWidth, setLeftPanelWidth] = useState(null);
-  const [browserWidth, setBrowserWidth] = useState(null);
-  const [rightTab, setRightTab] = useState('prompts');
+  const [activeLeftPanel, setActiveLeftPanel] = useState(savedLayout.activeLeftPanel ?? null);
+  const [rightPanelOpen, setRightPanelOpen] = useState(savedLayout.rightPanelOpen ?? false);
+  const [browserOpen, setBrowserOpen] = useState(savedLayout.browserOpen ?? false);
+  const [leftPanelWidth, setLeftPanelWidth] = useState(savedLayout.leftPanelWidth ?? null);
+  const [browserWidth, setBrowserWidth] = useState(savedLayout.browserWidth ?? null);
+  const [rightTab, setRightTab] = useState(savedLayout.rightTab ?? 'prompts');
   const [helpOpen, setHelpOpen] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -185,7 +192,6 @@ function AppInner({ onLogout }) {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [cmdPaletteOpen, setCmdPaletteOpen] = useState(false);
   const { setPalette, paletteName } = useTheme();
-  const { macros, createMacro, deleteMacro } = useMacros();
   const { activeData } = useContext(WorkspaceContext);
 
   const focusedCwd = useMemo(() => {
@@ -203,28 +209,14 @@ function AppInner({ onLogout }) {
     }));
   }, []);
 
-  const executeMacro = useCallback((macro) => {
-    if (macro.type === 'create') {
-      createMacro(macro);
-      return;
-    }
-    const action = macro.action;
-    if (!action) return;
-    switch (action.type) {
-      case 'toggleDanger':
-        setDangerFlags((prev) => ({ ...prev, global: action.value }));
-        break;
-      case 'setLayout':
-        window.dispatchEvent(new CustomEvent('flowcode:setLayout', { detail: action.value }));
-        break;
-      case 'sendAll':
-        window.dispatchEvent(new CustomEvent('flowcode:sendAll', { detail: action.value }));
-        break;
-      case 'sendActive':
-        window.dispatchEvent(new CustomEvent('flowcode:sendActive', { detail: action.value }));
-        break;
-    }
-  }, [createMacro]);
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      localStorage.setItem('flowcode_layout', JSON.stringify({
+        activeLeftPanel, leftPanelWidth, browserOpen, browserWidth, rightPanelOpen, rightTab,
+      }));
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [activeLeftPanel, leftPanelWidth, browserOpen, browserWidth, rightPanelOpen, rightTab]);
 
   const shortcutActions = useMemo(() => ({
     addTerminal: () => window.dispatchEvent(new Event('flowcode:addTerminal')),
@@ -233,6 +225,10 @@ function AppInner({ onLogout }) {
     toggleDanger: () => setDangerFlags((prev) => ({ ...prev, global: !prev.global })),
     cycleFocus: () => window.dispatchEvent(new Event('flowcode:cycleFocus')),
     openSettings: () => setSettingsOpen(true),
+    commandPalette: () => setCmdPaletteOpen((o) => !o),
+    toggleSidebar: () => setActiveLeftPanel((p) => p ? null : 'tasks'),
+    toggleBrowser: () => setBrowserOpen((o) => !o),
+    toggleCode: () => setActiveLeftPanel((p) => p === 'code' ? null : 'code'),
   }), []);
 
   useKeyboardShortcuts(shortcutActions);
@@ -426,24 +422,42 @@ function AppInner({ onLogout }) {
             </ErrorBoundary>
           </div>
 
-          <ErrorBoundary name="Macro Bar">
-            <MacroBar
-              macros={macros}
-              onExecute={executeMacro}
-              onDelete={deleteMacro}
-            />
-          </ErrorBoundary>
         </div>
 
         <footer className="fc-glass" style={{
-          padding: '3px 16px', borderTop: `1px solid ${colors.border.subtle}`,
-          display: 'flex', justifyContent: 'space-between',
+          padding: '2px 16px', borderTop: `1px solid ${colors.border.subtle}`,
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
           fontSize: 9, color: colors.text.ghost, fontFamily: FONTS.mono,
           background: colors.bg.glass || colors.bg.surface, flexShrink: 0,
-          position: 'relative', zIndex: 1,
+          position: 'relative', zIndex: 1, gap: 16, height: 22,
         }}>
-          <span>FlowCode v0.1.0</span>
-          <span style={{ letterSpacing: 0.5 }}>DutchMade Co.</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <span>FlowCode v0.1.0</span>
+            {focusedCwd && (
+              <span style={{ display: 'flex', alignItems: 'center', gap: 4, color: colors.text.dim }}>
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/>
+                </svg>
+                <span style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {focusedCwd.split(/[/\\]/).slice(-2).join('/')}
+                </span>
+              </span>
+            )}
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            {paletteName && (
+              <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <span style={{ width: 6, height: 6, borderRadius: '50%', background: colors.accent.primary }} />
+                {paletteName.charAt(0).toUpperCase() + paletteName.slice(1)}
+              </span>
+            )}
+            <span style={{ cursor: 'pointer' }} onClick={() => setCmdPaletteOpen(true)} title="Command Palette (Ctrl+K)">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/>
+              </svg>
+            </span>
+            <span style={{ letterSpacing: 0.5 }}>DutchMade Co.</span>
+          </div>
         </footer>
 
         <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} onLogout={onLogout} />

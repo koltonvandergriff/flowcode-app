@@ -4,9 +4,9 @@ import { SettingsContext } from './SettingsContext';
 
 export const ThemeContext = createContext({
   theme: DARK_COLORS,
-  terminalTheme: PALETTE_TERMINALS.aurora,
+  terminalTheme: PALETTE_TERMINALS.flowcode,
   themeName: 'dark',
-  paletteName: 'aurora',
+  paletteName: 'flowcode',
   toggleTheme: () => {},
   setPalette: () => {},
 });
@@ -14,7 +14,7 @@ export const ThemeContext = createContext({
 export function ThemeProvider({ children }) {
   const { settings, updateSetting } = useContext(SettingsContext);
   const [themeName, setThemeName] = useState('dark');
-  const [paletteName, setPaletteName] = useState('aurora');
+  const [paletteName, setPaletteName] = useState('flowcode');
 
   useEffect(() => {
     if (settings?.theme && (settings.theme === 'dark' || settings.theme === 'light')) {
@@ -45,7 +45,7 @@ export function ThemeProvider({ children }) {
     gradient: { ...LIGHT_COLORS.gradient, primary: darkPalette.gradient.primary },
     border: { ...LIGHT_COLORS.border, active: darkPalette.accent.primary, focus: darkPalette.accent.primary + '40' },
   };
-  const terminalTheme = themeName === 'dark' ? (PALETTE_TERMINALS[paletteName] || PALETTE_TERMINALS.aurora) : LIGHT_TERMINAL_THEME;
+  const terminalTheme = themeName === 'dark' ? (PALETTE_TERMINALS[paletteName] || PALETTE_TERMINALS.flowcode) : LIGHT_TERMINAL_THEME;
 
   return (
     <ThemeContext.Provider value={{ theme, terminalTheme, themeName, paletteName, toggleTheme, setPalette: changePalette }}>

@@ -46,6 +46,18 @@ export function useKeyboardShortcuts(actions) {
           case 'openSettings':
             actions.openSettings?.();
             break;
+          case 'commandPalette':
+            actions.commandPalette?.();
+            break;
+          case 'toggleSidebar':
+            actions.toggleSidebar?.();
+            break;
+          case 'toggleBrowser':
+            actions.toggleBrowser?.();
+            break;
+          case 'toggleCode':
+            actions.toggleCode?.();
+            break;
         }
 
         return; // Only one match per event

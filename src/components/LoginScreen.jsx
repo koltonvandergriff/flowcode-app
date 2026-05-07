@@ -167,7 +167,7 @@ export default function LoginScreen({ onAuthenticated }) {
                 <label style={s.checkboxLabel} onClick={() => setRememberMe(!rememberMe)}>
                   <div style={{
                     ...s.checkbox,
-                    background: rememberMe ? `linear-gradient(135deg, ${colors.accent.green}, ${colors.accent.cyan})` : 'transparent',
+                    background: rememberMe ? `linear-gradient(135deg, ${colors.accent.cyan}, ${colors.accent.blue})` : 'transparent',
                     borderColor: rememberMe ? 'transparent' : colors.border.subtle,
                   }}>
                     {rememberMe && (
@@ -253,7 +253,7 @@ function buildStyles(c) {
     },
     glowTopRight: {
       position: 'absolute', top: -120, right: -120, width: 400, height: 400, borderRadius: '50%',
-      background: `radial-gradient(circle, ${c.accent.purple}15 0%, transparent 70%)`,
+      background: `radial-gradient(circle, ${c.accent.cyan}15 0%, transparent 70%)`,
       pointerEvents: 'none', animation: 'fc-glow-pulse 6s ease-in-out infinite',
     },
     glowBottomLeft: {
@@ -273,9 +273,9 @@ function buildStyles(c) {
     logoSection: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 },
     logoBox: {
       width: 56, height: 56, borderRadius: 14,
-      background: `linear-gradient(135deg, ${c.accent.pink}, ${c.accent.purple}, ${c.accent.green})`,
+      background: `linear-gradient(135deg, ${c.accent.cyan}, ${c.accent.blue})`,
       display: 'flex', alignItems: 'center', justifyContent: 'center',
-      boxShadow: `0 8px 32px ${c.accent.purple}35, 0 2px 8px rgba(0,0,0,0.3)`,
+      boxShadow: `0 8px 32px ${c.accent.cyan}35, 0 2px 8px rgba(0,0,0,0.3)`,
     },
     logoLetter: { fontSize: 24, fontWeight: 900, color: '#fff', fontFamily: orb, lineHeight: 1 },
     brandText: { display: 'flex', alignItems: 'center', gap: 0 },
@@ -313,7 +313,7 @@ function buildStyles(c) {
       lineHeight: '44px', caretColor: c.accent.green,
     },
     forgotLink: {
-      all: 'unset', cursor: 'pointer', fontSize: 11, color: c.accent.purple,
+      all: 'unset', cursor: 'pointer', fontSize: 11, color: c.accent.cyan,
       fontFamily: FONTS.body, fontWeight: 500, letterSpacing: 0.2, transition: 'color 0.15s ease',
     },
     rememberRow: { display: 'flex', alignItems: 'center', marginTop: -4 },
@@ -325,10 +325,10 @@ function buildStyles(c) {
     checkboxText: { fontSize: 12, color: c.text.muted, fontFamily: FONTS.body },
     submitBtn: {
       all: 'unset', boxSizing: 'border-box', width: '100%', height: 44, borderRadius: 10,
-      background: `linear-gradient(135deg, ${c.accent.green}, ${c.accent.cyan})`,
+      background: `linear-gradient(135deg, ${c.accent.cyan}, ${c.accent.blue})`,
       display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
       transition: 'opacity 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease',
-      boxShadow: `0 4px 16px ${c.accent.green}30, 0 1px 4px rgba(0,0,0,0.2)`, marginTop: 4,
+      boxShadow: `0 4px 16px ${c.accent.cyan}30, 0 1px 4px rgba(0,0,0,0.2)`, marginTop: 4,
     },
     submitBtnText: { fontSize: 14, fontWeight: 600, color: '#0f1623', fontFamily: FONTS.body, letterSpacing: 0.5 },
     spinnerContainer: { display: 'flex', alignItems: 'center', gap: 8, color: '#0f1623', fontSize: 13, fontWeight: 600, fontFamily: FONTS.body },
@@ -339,7 +339,7 @@ function buildStyles(c) {
     createAccountRow: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 },
     createAccountText: { fontSize: 13, color: c.text.muted, fontFamily: FONTS.body },
     createAccountLink: {
-      all: 'unset', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: c.accent.purple,
+      all: 'unset', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: c.accent.cyan,
       fontFamily: FONTS.body, letterSpacing: 0.2, transition: 'color 0.15s ease',
     },
     legal: {

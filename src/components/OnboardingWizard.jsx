@@ -82,12 +82,24 @@ function buildFeatures(colors) {
     ),
   },
   {
-    title: 'Macro System',
-    desc: 'Record and replay command sequences across all terminals.',
+    title: 'Code Editor',
+    desc: 'Built-in Monaco editor with file tree, tabs, and syntax highlighting.',
     color: colors.accent.green,
     icon: (
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-        <polygon points="5 3 19 12 5 21 5 3" />
+        <polyline points="16 18 22 12 16 6" />
+        <polyline points="8 6 2 12 8 18" />
+      </svg>
+    ),
+  },
+  {
+    title: 'Mobile Notifications',
+    desc: 'Get push alerts for builds, tests, and crashes on your phone.',
+    color: colors.accent.cyan,
+    icon: (
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="5" y="2" width="14" height="20" rx="2" ry="2" />
+        <line x1="12" y1="18" x2="12.01" y2="18" />
       </svg>
     ),
   },
@@ -180,9 +192,9 @@ function NavButton({ children, onClick, variant = 'default', disabled = false })
     return (
       <button onClick={disabled ? undefined : onClick} style={{
         ...base,
-        background: `linear-gradient(135deg, ${colors.accent.green}, ${colors.accent.cyan})`,
+        background: `linear-gradient(135deg, ${colors.accent.cyan}, ${colors.accent.blue})`,
         color: '#0f1623',
-        boxShadow: `0 4px 16px ${colors.accent.green}30, 0 1px 4px rgba(0,0,0,0.2)`,
+        boxShadow: `0 4px 16px ${colors.accent.cyan}30, 0 1px 4px rgba(0,0,0,0.2)`,
       }}>
         {children}
       </button>
@@ -234,9 +246,9 @@ function StepWelcome({ onNext }) {
       {/* Logo */}
       <div style={{
         width: 64, height: 64, borderRadius: 16,
-        background: `linear-gradient(135deg, ${colors.accent.pink}, ${colors.accent.purple}, ${colors.accent.green})`,
+        background: `linear-gradient(135deg, ${colors.accent.cyan}, ${colors.accent.blue})`,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        boxShadow: `0 8px 32px ${colors.accent.purple}35, 0 2px 8px rgba(0,0,0,0.3)`,
+        boxShadow: `0 8px 32px ${colors.accent.cyan}35, 0 2px 8px rgba(0,0,0,0.3)`,
       }}>
         <span style={{
           fontSize: 28, fontWeight: 900, color: '#fff',

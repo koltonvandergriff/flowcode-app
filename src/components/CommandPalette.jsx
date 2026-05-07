@@ -13,6 +13,21 @@ function fuzzyMatch(text, query) {
   return qi === q.length;
 }
 
+const RECENT_KEY = 'flowcode_recent_commands';
+const MAX_RECENT = 5;
+
+function getRecentIds() {
+  try {
+    return JSON.parse(localStorage.getItem(RECENT_KEY) || '[]');
+  } catch { return []; }
+}
+
+function addRecent(id) {
+  const ids = getRecentIds().filter((r) => r !== id);
+  ids.unshift(id);
+  localStorage.setItem(RECENT_KEY, JSON.stringify(ids.slice(0, MAX_RECENT)));
+}
+
 export default function CommandPalette({ open, onClose, actions }) {
   const { colors } = useTheme();
   const [query, setQuery] = useState('');
@@ -21,10 +36,17 @@ export default function CommandPalette({ open, onClose, actions }) {
   const listRef = useRef(null);
   const itemRefs = useRef({});
 
-  // Filter actions by fuzzy match on label and category
   const filtered = useMemo(() => {
-    if (!query.trim()) return actions || [];
-    return (actions || []).filter(
+    const all = actions || [];
+    if (!query.trim()) {
+      const recentIds = getRecentIds();
+      if (recentIds.length === 0) return all;
+      const recent = recentIds.map((id) => all.find((a) => a.id === id)).filter(Boolean)
+        .map((a) => ({ ...a, category: 'Recent' }));
+      const rest = all.filter((a) => !recentIds.includes(a.id));
+      return [...recent, ...rest];
+    }
+    return all.filter(
       (a) => fuzzyMatch(a.label, query) || fuzzyMatch(a.category, query)
     );
   }, [actions, query]);
@@ -77,6 +99,7 @@ export default function CommandPalette({ open, onClose, actions }) {
   const executeAction = useCallback(
     (action) => {
       if (action?.onAction) {
+        addRecent(action.id);
         action.onAction();
       }
       onClose();

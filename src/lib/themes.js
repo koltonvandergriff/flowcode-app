@@ -3,6 +3,60 @@
 // Three dark palettes + one light. Switch via ThemeContext.
 // ---------------------------------------------------------------------------
 
+// FLOWCODE — brand palette. Electric cyan from the FC logo, deep circuit-board dark.
+const FLOWCODE = {
+  bg: {
+    base: '#060a12',
+    surface: '#0a1020',
+    raised: '#0f1628',
+    overlay: '#162038',
+    elevated: '#1c2844',
+    glass: 'rgba(10, 16, 32, 0.78)',
+    glow: 'rgba(0, 212, 255, 0.06)',
+  },
+  border: {
+    subtle: 'rgba(0, 180, 255, 0.07)',
+    medium: 'rgba(0, 180, 255, 0.14)',
+    active: '#00d4ff',
+    danger: 'rgba(255, 92, 106, 0.3)',
+    focus: 'rgba(0, 212, 255, 0.4)',
+  },
+  accent: {
+    primary: '#00d4ff',
+    secondary: '#38bdf8',
+    green: '#34d399',
+    purple: '#818cf8',
+    amber: '#fbbf24',
+    cyan: '#00d4ff',
+    pink: '#f472b6',
+    blue: '#38bdf8',
+  },
+  text: {
+    primary: '#e8ecf4',
+    secondary: '#94a3b8',
+    muted: '#64748b',
+    dim: '#475569',
+    ghost: '#2a3648',
+  },
+  status: {
+    success: '#34d399',
+    warning: '#fbbf24',
+    error: '#f87171',
+    info: '#38bdf8',
+    idle: '#475569',
+  },
+  gradient: {
+    primary: 'linear-gradient(135deg, #00d4ff, #38bdf8)',
+    surface: 'linear-gradient(180deg, rgba(0, 212, 255, 0.03) 0%, transparent 100%)',
+    glow: 'radial-gradient(ellipse at 50% 0%, rgba(0, 212, 255, 0.08) 0%, transparent 70%)',
+    mesh: `
+      radial-gradient(ellipse 80% 50% at 20% 80%, rgba(56, 189, 248, 0.04) 0%, transparent 100%),
+      radial-gradient(ellipse 60% 60% at 80% 20%, rgba(0, 212, 255, 0.06) 0%, transparent 100%),
+      radial-gradient(ellipse 50% 50% at 50% 50%, rgba(129, 140, 248, 0.02) 0%, transparent 100%)
+    `,
+  },
+};
+
 // AURORA — cool ethereal. Purple-to-teal gradient signature. Premium dev feel.
 const AURORA = {
   bg: {
@@ -245,11 +299,12 @@ const ONEDARK = {
   gradient: { primary: 'linear-gradient(135deg, #61afef, #56b6c2)', surface: 'linear-gradient(180deg, rgba(97, 175, 239, 0.02) 0%, transparent 100%)', glow: 'radial-gradient(ellipse at 50% 0%, rgba(97, 175, 239, 0.06) 0%, transparent 70%)', mesh: `radial-gradient(ellipse 80% 50% at 20% 80%, rgba(152, 195, 121, 0.03) 0%, transparent 100%), radial-gradient(ellipse 60% 60% at 80% 20%, rgba(97, 175, 239, 0.04) 0%, transparent 100%)` },
 };
 
-// Default dark = Aurora
-export const DARK_COLORS = AURORA;
+// Default dark = FlowCode brand palette
+export const DARK_COLORS = FLOWCODE;
 
 // All palettes for palette picker
 export const PALETTES = {
+  flowcode: FLOWCODE,
   aurora: AURORA,
   ember: EMBER,
   abyss: ABYSS,
@@ -265,23 +320,23 @@ export const PALETTES = {
 
 export const LIGHT_COLORS = {
   bg: {
-    base: '#f5f6f8',
+    base: '#f5f7fa',
     surface: '#ffffff',
-    raised: '#f0f1f3',
-    overlay: '#e8e9ed',
-    elevated: '#dddee2',
-    glass: 'rgba(255, 255, 255, 0.75)',
-    glow: 'rgba(124, 58, 237, 0.04)',
+    raised: '#f0f2f5',
+    overlay: '#e8eaef',
+    elevated: '#dde0e6',
+    glass: 'rgba(255, 255, 255, 0.78)',
+    glow: 'rgba(0, 180, 220, 0.04)',
   },
   border: {
     subtle: 'rgba(0, 0, 0, 0.06)',
     medium: 'rgba(0, 0, 0, 0.12)',
-    active: '#7c3aed',
+    active: '#0891b2',
     danger: 'rgba(239, 68, 68, 0.3)',
-    focus: 'rgba(124, 58, 237, 0.3)',
+    focus: 'rgba(0, 180, 220, 0.3)',
   },
   accent: {
-    primary: '#7c3aed',
+    primary: '#0891b2',
     secondary: '#0d9488',
     green: '#16a34a',
     purple: '#7c3aed',
@@ -313,6 +368,30 @@ export const LIGHT_COLORS = {
 };
 
 // Terminal themes matched to palettes
+export const FLOWCODE_TERMINAL = {
+  background: '#0a1020',
+  foreground: '#d4dce8',
+  cursor: '#00d4ff',
+  cursorAccent: '#0a1020',
+  selectionBackground: 'rgba(0, 212, 255, 0.2)',
+  black: '#0a1020',
+  red: '#f87171',
+  green: '#34d399',
+  yellow: '#fbbf24',
+  blue: '#38bdf8',
+  magenta: '#818cf8',
+  cyan: '#00d4ff',
+  white: '#94a3b8',
+  brightBlack: '#475569',
+  brightRed: '#fca5a5',
+  brightGreen: '#6ee7b7',
+  brightYellow: '#fde68a',
+  brightBlue: '#7dd3fc',
+  brightMagenta: '#a5b4fc',
+  brightCyan: '#40e0ff',
+  brightWhite: '#e8ecf4',
+};
+
 export const AURORA_TERMINAL = {
   background: '#0c101a',
   foreground: '#d4d8e8',
@@ -386,7 +465,7 @@ export const ABYSS_TERMINAL = {
 };
 
 // Legacy exports
-export const DARK_TERMINAL_THEME = AURORA_TERMINAL;
+export const DARK_TERMINAL_THEME = FLOWCODE_TERMINAL;
 
 export const LIGHT_TERMINAL_THEME = {
   background: '#ffffff',
@@ -434,6 +513,7 @@ const ONEDARK_TERMINAL = termTheme('#282c34', '#abb2bf', '#61afef', { red: '#e06
 
 // Palette-to-terminal mapping
 export const PALETTE_TERMINALS = {
+  flowcode: FLOWCODE_TERMINAL,
   aurora: AURORA_TERMINAL,
   ember: EMBER_TERMINAL,
   abyss: ABYSS_TERMINAL,
