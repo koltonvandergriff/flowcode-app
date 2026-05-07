@@ -269,7 +269,7 @@ function buildStyles(c) {
     },
     logoSection: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 },
     logoBox: {
-      width: 100, height: 100, borderRadius: 20,
+      width: 160, height: 160, borderRadius: 24,
       overflow: 'hidden',
       boxShadow: `0 8px 32px ${c.accent.cyan}35, 0 2px 8px rgba(0,0,0,0.3)`,
     },
