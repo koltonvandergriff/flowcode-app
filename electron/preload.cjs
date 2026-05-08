@@ -125,6 +125,12 @@ contextBridge.exposeInMainWorld('flowade', {
     pickFolder: (defaultPath) => ipcRenderer.invoke('dialog:pickFolder', defaultPath),
     pickImages: () => ipcRenderer.invoke('dialog:pickImages'),
     saveImageTemp: (data) => ipcRenderer.invoke('dialog:saveImageTemp', data),
+    takeScreenshot: () => ipcRenderer.invoke('dialog:takeScreenshot'),
+  },
+
+  whisper: {
+    status: () => ipcRenderer.invoke('whisper:status'),
+    transcribe: (wavBase64) => ipcRenderer.invoke('whisper:transcribe', wavBase64),
   },
 
   git: {

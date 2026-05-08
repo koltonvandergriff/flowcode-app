@@ -380,6 +380,10 @@ export default function TerminalPane({
   const [isRenaming, setIsRenaming] = useState(false);
   const [renameVal, setRenameVal] = useState(label);
   const [inputVal, setInputVal] = useState('');
+  const [promptY, setPromptY] = useState(null);
+  const promptTimerRef = useRef(null);
+  const inputStartPosRef = useRef({ x: 0, y: 0 });
+  const inputLockedRef = useRef(false);
   const [mode, setMode] = useState('usage');
   const [currentCwd, setCurrentCwd] = useState(cwd || null);
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
@@ -387,6 +391,8 @@ export default function TerminalPane({
   const [previewUrl, setPreviewUrl] = useState(null);
   const [showPreview, setShowPreview] = useState(false);
   const [attachedImages, setAttachedImages] = useState([]);
+  const [attachMenuOpen, setAttachMenuOpen] = useState(false);
+  const attachMenuRef = useRef(null);
   const [cavemanActive, setCavemanActive] = useState(false);
   const cavemanInitRef = useRef(false);
   const ctxAlertedRef = useRef(0);
@@ -411,6 +417,27 @@ export default function TerminalPane({
   }, [moreMenuOpen]);
 
   useEffect(() => {
+    if (!attachMenuOpen) return;
+    const close = (e) => {
+      if (attachMenuRef.current && !attachMenuRef.current.contains(e.target)) setAttachMenuOpen(false);
+    };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [attachMenuOpen]);
+
+  const handleTakeScreenshot = useCallback(async () => {
+    const img = await window.flowade?.dialog?.takeScreenshot();
+    if (img) setAttachedImages((prev) => [...prev, img]);
+    setAttachMenuOpen(false);
+  }, []);
+
+  const handlePickImagesMenu = useCallback(async () => {
+    setAttachMenuOpen(false);
+    const imgs = await window.flowade?.dialog?.pickImages();
+    if (imgs?.length) setAttachedImages((prev) => [...prev, ...imgs]);
+  }, []);
+
+  useEffect(() => {
     if (cavemanInitRef.current) return;
     if (provider !== 'claude' || isApiProvider) return;
     cavemanInitRef.current = true;
@@ -428,10 +455,26 @@ export default function TerminalPane({
   }, [id]);
 
   const voiceBaseRef = useRef('');
+  const voiceWrittenRef = useRef('');
   const { listening, status: voiceStatus, toggle: toggleVoice } = useVoiceInput({
     onInterim: (text) => {
       if (isApiProvider) {
         setInputVal(voiceBaseRef.current + (voiceBaseRef.current ? ' ' : '') + text);
+      } else {
+        // Write only the new characters since last interim
+        const prev = voiceWrittenRef.current;
+        if (text.length > prev.length && text.startsWith(prev)) {
+          const newPart = text.slice(prev.length);
+          sendToTerminal(newPart);
+          voiceWrittenRef.current = text;
+        } else if (text !== prev) {
+          // Transcription changed — erase old and write new
+          if (prev.length > 0) {
+            sendToTerminal('\b'.repeat(prev.length) + ' '.repeat(prev.length) + '\b'.repeat(prev.length));
+          }
+          sendToTerminal(text);
+          voiceWrittenRef.current = text;
+        }
       }
     },
     onFinal: (text) => {
@@ -439,31 +482,36 @@ export default function TerminalPane({
         voiceBaseRef.current = voiceBaseRef.current + (voiceBaseRef.current ? ' ' : '') + text;
         setInputVal(voiceBaseRef.current);
       } else {
-        sendToTerminal(text);
+        // Erase interim text, write final, submit
+        const prev = voiceWrittenRef.current;
+        if (prev.length > 0) {
+          sendToTerminal('\b'.repeat(prev.length) + ' '.repeat(prev.length) + '\b'.repeat(prev.length));
+        }
+        sendToTerminal(text + '\r');
+        voiceWrittenRef.current = '';
       }
     },
   });
 
   const handleInputSend = useCallback(async () => {
-    const text = inputVal.trim();
-    if (!text && !attachedImages.length) return;
-
     if (isApiProvider) {
+      const text = inputVal.trim();
+      if (!text && !attachedImages.length) return;
       const sendFn = window.__flowadeApiChat?.[id];
       if (sendFn) sendFn(text, attachedImages.length ? attachedImages : undefined);
+      setInputVal('');
     } else {
       if (attachedImages.length) {
         for (const img of attachedImages) {
           const filePath = img.filePath || await window.flowade?.dialog?.saveImageTemp({ dataUrl: img.dataUrl, name: img.name });
           if (filePath) sendToTerminal(filePath + '\r');
         }
+      } else {
+        sendToTerminal('\r');
       }
-      if (text) sendToTerminal(text + '\r');
     }
-    setInputVal('');
     setAttachedImages([]);
     if (listening) { toggleVoice(); voiceBaseRef.current = ''; }
-    inputRef.current?.focus();
   }, [inputVal, attachedImages, sendToTerminal, isApiProvider, id, listening, toggleVoice]);
 
   const pickFolder = useCallback(async () => {
@@ -535,7 +583,64 @@ export default function TerminalPane({
     fitRef.current = fit;
 
     term.attachCustomKeyEventHandler((event) => {
+      if (event.type !== 'keydown') return true;
       const mod = event.ctrlKey || event.metaKey;
+      if (mod && event.key === 'a') {
+        const curY = term.buffer.active.cursorY;
+        const baseY = term.buffer.active.baseY;
+        let startRow = curY;
+        while (startRow > 0) {
+          const l = term.buffer.active.getLine(startRow);
+          if (!l || !l.isWrapped) break;
+          startRow--;
+        }
+        let endRow = curY;
+        while (endRow < term.rows - 1) {
+          const n = term.buffer.active.getLine(endRow + 1);
+          if (!n || !n.isWrapped) break;
+          endRow++;
+        }
+        const firstLine = term.buffer.active.getLine(startRow);
+        if (!firstLine) return false;
+        let startCol = 0;
+        for (let i = 0; i < Math.min(firstLine.length, 30); i++) {
+          const cell = firstLine.getCell(i);
+          if (!cell || cell.getWidth() === 0) continue;
+          const ch = cell.getChars();
+          if (ch && '❯>$#%'.indexOf(ch) !== -1) {
+            startCol = i + cell.getWidth();
+            while (startCol < firstLine.length) {
+              const sc = firstLine.getCell(startCol);
+              if (!sc || sc.getChars() !== ' ') break;
+              startCol++;
+            }
+            break;
+          }
+        }
+        const lastLine = term.buffer.active.getLine(endRow);
+        let endCol = 0;
+        if (lastLine) {
+          for (let i = lastLine.length - 1; i >= 0; i--) {
+            const cell = lastLine.getCell(i);
+            if (cell && cell.getChars().trim()) { endCol = i + 1; break; }
+          }
+        }
+        let len;
+        if (startRow === endRow) {
+          len = endCol - startCol;
+        } else {
+          len = (term.cols - startCol);
+          for (let r = startRow + 1; r < endRow; r++) len += term.cols;
+          len += endCol;
+        }
+        if (len > 0) term.select(startCol, baseY + startRow, len);
+        return false;
+      }
+      if ((event.key === 'Backspace' || event.key === 'Delete') && term.hasSelection()) {
+        term.clearSelection();
+        window.flowade?.terminal.write(id, '\x05\x15');
+        return false;
+      }
       if (mod && event.key === 'v') return false;
       if (mod && event.key === 'c' && term.hasSelection()) return false;
       if (mod && ['t', 'w', 'k', '1', '2', '3', '4', ',', 'Tab'].includes(event.key)) return false;
@@ -572,6 +677,21 @@ export default function TerminalPane({
           outputBufRef.current += data;
           if (outputBufRef.current.length > 3000) outputBufRef.current = outputBufRef.current.slice(-2000);
 
+          if (promptTimerRef.current) clearTimeout(promptTimerRef.current);
+          promptTimerRef.current = setTimeout(() => {
+            const row = term.buffer.active.cursorY;
+            const col = term.buffer.active.cursorX;
+            setPromptY(row);
+            if (!inputLockedRef.current) {
+              inputStartPosRef.current = { x: col, y: term.buffer.active.baseY + row };
+            }
+          }, 100);
+
+          const stripped = data.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '');
+          if (stripped.includes('\n') || stripped.length > 40) {
+            inputLockedRef.current = false;
+          }
+
           const ctx = parseContextUsage(data);
           if (ctx != null) {
             setCtxPercent(ctx);
@@ -603,6 +723,13 @@ export default function TerminalPane({
               }
               return prev !== detectedUrl ? detectedUrl : prev;
             });
+          }
+
+          // Detect /rename in terminal output
+          const renameMatch = data.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '').match(/Session renamed to:\s*(.+)/);
+          if (renameMatch) {
+            const newName = renameMatch[1].trim();
+            if (newName) onRename?.(newName);
           }
 
           if (optionScanRef.current) clearTimeout(optionScanRef.current);
@@ -643,6 +770,8 @@ export default function TerminalPane({
 
     term.onData((data) => {
       window.flowade?.terminal.write(id, data);
+      inputLockedRef.current = true;
+      if (data === '\r' || data === '\n') inputLockedRef.current = false;
       setTermOptions(null);
       outputBufRef.current = '';
     });
@@ -957,8 +1086,97 @@ export default function TerminalPane({
           setAttachedImages={setAttachedImages}
         />
       ) : (
-        <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
+        <div style={{ display: 'flex', flex: 1, minHeight: 0, position: 'relative' }}>
           <div ref={termRef} style={{ flex: 1, padding: '4px 8px', minHeight: 0, overflow: 'hidden' }} />
+          {/* Floating action buttons below prompt */}
+          <div style={{
+            position: 'absolute',
+            top: promptY != null ? `calc(${(promptY + 2) * fontSize * 1.35}px + 8px)` : undefined,
+            bottom: promptY == null ? 8 : undefined,
+            right: 12, display: 'flex', gap: 4,
+            alignItems: 'center', zIndex: 2,
+          }}>
+            {attachedImages.length > 0 && (
+              <div style={{
+                display: 'flex', gap: 4, alignItems: 'center', padding: '3px 6px',
+                background: colors.bg.surface + 'e0', borderRadius: 6,
+                border: `1px solid ${colors.border.subtle}`,
+              }}>
+                {attachedImages.map((img, i) => (
+                  <div key={i} style={{ position: 'relative', flexShrink: 0 }}>
+                    <img src={img.dataUrl} alt={img.name} style={{
+                      width: 32, height: 32, objectFit: 'cover', borderRadius: 4,
+                      border: `1px solid ${colors.border.subtle}`,
+                    }} />
+                    <button onClick={() => setAttachedImages((prev) => prev.filter((_, j) => j !== i))} style={{
+                      all: 'unset', cursor: 'pointer', position: 'absolute', top: -3, right: -3,
+                      width: 14, height: 14, borderRadius: '50%', display: 'flex',
+                      alignItems: 'center', justifyContent: 'center',
+                      background: colors.status.error, color: '#fff', fontSize: 9, fontWeight: 700, lineHeight: 1,
+                    }}>×</button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div ref={attachMenuRef} style={{ position: 'relative' }}>
+              <button onClick={() => setAttachMenuOpen((o) => !o)} title="Attach image"
+                style={{
+                  all: 'unset', cursor: 'pointer', display: 'flex', alignItems: 'center',
+                  justifyContent: 'center', width: 28, height: 28, borderRadius: 6,
+                  background: colors.bg.surface + 'e0', border: `1px solid ${colors.border.subtle}`,
+                  color: attachedImages.length ? colors.accent.cyan : colors.text.dim,
+                  transition: 'all .15s', flexShrink: 0,
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.color = colors.accent.cyan; e.currentTarget.style.borderColor = colors.accent.cyan; }}
+                onMouseLeave={(e) => { e.currentTarget.style.color = attachedImages.length ? colors.accent.cyan : colors.text.dim; e.currentTarget.style.borderColor = colors.border.subtle; }}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                  <circle cx="8.5" cy="8.5" r="1.5" />
+                  <polyline points="21 15 16 10 5 21" />
+                </svg>
+              </button>
+              {attachMenuOpen && (
+                <div style={{
+                  position: 'absolute', bottom: '100%', right: 0, marginBottom: 4, zIndex: 40,
+                  background: colors.bg.elevated || colors.bg.overlay, border: `1px solid ${colors.border.medium || colors.border.subtle}`,
+                  borderRadius: 8, padding: 4, minWidth: 150, boxShadow: '0 8px 24px rgba(0,0,0,.4)',
+                }}>
+                  <button onClick={handleTakeScreenshot} style={{
+                    all: 'unset', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8,
+                    width: '100%', padding: '6px 10px', borderRadius: 4, fontSize: 11, fontFamily: fb,
+                    color: colors.text.secondary, transition: 'background .1s', boxSizing: 'border-box',
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = colors.bg.overlay; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" /><line x1="8" y1="21" x2="16" y2="21" /><line x1="12" y1="17" x2="12" y2="21" /></svg>
+                    Screenshot
+                  </button>
+                  <button onClick={handlePickImagesMenu} style={{
+                    all: 'unset', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8,
+                    width: '100%', padding: '6px 10px', borderRadius: 4, fontSize: 11, fontFamily: fb,
+                    color: colors.text.secondary, transition: 'background .1s', boxSizing: 'border-box',
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = colors.bg.overlay; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg>
+                    Upload image
+                  </button>
+                </div>
+              )}
+            </div>
+            <button onClick={handleInputSend} title={attachedImages.length ? 'Send images' : 'Submit (Enter)'}
+              style={{
+                all: 'unset', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                gap: 5, padding: '5px 14px', borderRadius: 20,
+                background: colors.accent.purple, color: '#fff',
+                fontSize: 11, fontWeight: 600, fontFamily: fb, letterSpacing: 0.3,
+                transition: 'all .15s', flexShrink: 0,
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.85'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.opacity = '1'; }}>
+              Send
+            </button>
+          </div>
           {showPreview && previewUrl && (
             <PreviewPane
               url={previewUrl}
@@ -998,91 +1216,110 @@ export default function TerminalPane({
         </div>
       )}
 
-      {/* Attached images preview strip */}
-      {attachedImages.length > 0 && (
-        <div style={{
-          display: 'flex', gap: 6, padding: '6px 12px', alignItems: 'center',
-          borderTop: `1px solid ${colors.border.subtle}`, background: colors.bg.overlay,
-          flexShrink: 0, overflowX: 'auto',
-        }}>
-          {attachedImages.map((img, i) => (
-            <div key={i} style={{ position: 'relative', flexShrink: 0 }}>
-              <img src={img.dataUrl} alt={img.name} style={{
-                width: 48, height: 48, objectFit: 'cover', borderRadius: 6,
-                border: `1px solid ${colors.border.subtle}`,
-              }} />
-              <button onClick={() => setAttachedImages((prev) => prev.filter((_, j) => j !== i))} style={{
-                all: 'unset', cursor: 'pointer', position: 'absolute', top: -4, right: -4,
-                width: 16, height: 16, borderRadius: '50%', display: 'flex',
-                alignItems: 'center', justifyContent: 'center',
-                background: colors.status.error, color: '#fff', fontSize: 10, fontWeight: 700,
-                lineHeight: 1,
-              }}>×</button>
+      {/* Bottom bar — only for API providers (terminal has floating buttons) */}
+      {isApiProvider && (
+        <>
+          {attachedImages.length > 0 && (
+            <div style={{
+              display: 'flex', gap: 6, padding: '6px 12px', alignItems: 'center',
+              borderTop: `1px solid ${colors.border.subtle}`, background: colors.bg.overlay,
+              flexShrink: 0, overflowX: 'auto',
+            }}>
+              {attachedImages.map((img, i) => (
+                <div key={i} style={{ position: 'relative', flexShrink: 0 }}>
+                  <img src={img.dataUrl} alt={img.name} style={{
+                    width: 48, height: 48, objectFit: 'cover', borderRadius: 6,
+                    border: `1px solid ${colors.border.subtle}`,
+                  }} />
+                  <button onClick={() => setAttachedImages((prev) => prev.filter((_, j) => j !== i))} style={{
+                    all: 'unset', cursor: 'pointer', position: 'absolute', top: -4, right: -4,
+                    width: 16, height: 16, borderRadius: '50%', display: 'flex',
+                    alignItems: 'center', justifyContent: 'center',
+                    background: colors.status.error, color: '#fff', fontSize: 10, fontWeight: 700, lineHeight: 1,
+                  }}>×</button>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+          )}
+          <div style={{
+            display: 'flex', gap: 6, padding: '6px 10px', alignItems: 'center',
+            borderTop: attachedImages.length ? 'none' : `1px solid ${colors.border.subtle}`,
+            background: colors.bg.overlay, flexShrink: 0,
+          }}>
+            <div ref={attachMenuRef} style={{ position: 'relative' }}>
+              <button onClick={() => setAttachMenuOpen((o) => !o)} title="Attach image"
+                style={{
+                  all: 'unset', cursor: 'pointer', display: 'flex', alignItems: 'center',
+                  justifyContent: 'center', width: 24, height: 24, borderRadius: 5,
+                  color: attachedImages.length ? colors.accent.cyan : colors.text.dim,
+                  transition: 'color .15s', flexShrink: 0,
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.color = colors.accent.cyan; }}
+                onMouseLeave={(e) => { e.currentTarget.style.color = attachedImages.length ? colors.accent.cyan : colors.text.dim; }}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                  <circle cx="8.5" cy="8.5" r="1.5" />
+                  <polyline points="21 15 16 10 5 21" />
+                </svg>
+              </button>
+              {attachMenuOpen && (
+                <div style={{
+                  position: 'absolute', bottom: '100%', left: 0, marginBottom: 4, zIndex: 40,
+                  background: colors.bg.elevated || colors.bg.overlay, border: `1px solid ${colors.border.medium || colors.border.subtle}`,
+                  borderRadius: 8, padding: 4, minWidth: 150, boxShadow: '0 8px 24px rgba(0,0,0,.4)',
+                }}>
+                  <button onClick={handleTakeScreenshot} style={{
+                    all: 'unset', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8,
+                    width: '100%', padding: '6px 10px', borderRadius: 4, fontSize: 11, fontFamily: fb,
+                    color: colors.text.secondary, transition: 'background .1s', boxSizing: 'border-box',
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = colors.bg.overlay; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" /><line x1="8" y1="21" x2="16" y2="21" /><line x1="12" y1="17" x2="12" y2="21" /></svg>
+                    Screenshot
+                  </button>
+                  <button onClick={handlePickImagesMenu} style={{
+                    all: 'unset', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8,
+                    width: '100%', padding: '6px 10px', borderRadius: 4, fontSize: 11, fontFamily: fb,
+                    color: colors.text.secondary, transition: 'background .1s', boxSizing: 'border-box',
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = colors.bg.overlay; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg>
+                    Upload image
+                  </button>
+                </div>
+              )}
+            </div>
+            <input
+              ref={inputRef}
+              value={inputVal}
+              onChange={(e) => setInputVal(e.target.value)}
+              onPaste={handlePasteImage}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleInputSend(); }
+              }}
+              placeholder={`Message ${providerDef?.name || 'AI'}...`}
+              style={{
+                flex: 1, background: 'transparent', border: 'none', outline: 'none',
+                color: colors.text.primary, fontSize: 12, fontFamily: fc, padding: '3px 0',
+              }}
+            />
+            <button onClick={handleInputSend}
+              style={{
+                all: 'unset', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                width: 28, height: 28, borderRadius: 6,
+                background: (inputVal.trim() || attachedImages.length) ? colors.accent.purple : 'transparent',
+                color: (inputVal.trim() || attachedImages.length) ? '#fff' : colors.text.dim,
+                transition: 'all .15s',
+              }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" />
+              </svg>
+            </button>
+          </div>
+        </>
       )}
-
-      {/* Input bar with send button */}
-      <div style={{
-        display: 'flex', gap: 6, padding: '6px 10px', alignItems: 'center',
-        borderTop: attachedImages.length ? 'none' : `1px solid ${colors.border.subtle}`,
-        background: colors.bg.overlay,
-        flexShrink: 0,
-      }}>
-        <button
-          onClick={handlePickImages}
-          title="Attach image"
-          style={{
-            all: 'unset', cursor: 'pointer', display: 'flex', alignItems: 'center',
-            justifyContent: 'center', width: 24, height: 24, borderRadius: 5,
-            color: attachedImages.length ? colors.accent.cyan : colors.text.dim,
-            transition: 'color .15s', flexShrink: 0,
-          }}
-          onMouseEnter={(e) => { e.currentTarget.style.color = colors.accent.cyan; }}
-          onMouseLeave={(e) => { e.currentTarget.style.color = attachedImages.length ? colors.accent.cyan : colors.text.dim; }}
-        >
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-            <circle cx="8.5" cy="8.5" r="1.5" />
-            <polyline points="21 15 16 10 5 21" />
-          </svg>
-        </button>
-
-        <input
-          ref={inputRef}
-          value={inputVal}
-          onChange={(e) => setInputVal(e.target.value)}
-          onPaste={handlePasteImage}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-              e.preventDefault();
-              handleInputSend();
-            }
-          }}
-          placeholder={isApiProvider ? `Message ${providerDef?.name || 'AI'}...` : 'Type a command or message...'}
-          style={{
-            flex: 1, background: 'transparent', border: 'none', outline: 'none',
-            color: colors.text.primary, fontSize: 12, fontFamily: fc, padding: '3px 0',
-          }}
-        />
-        <button
-          onClick={handleInputSend}
-          style={{
-            all: 'unset', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-            width: 28, height: 28, borderRadius: 6,
-            background: (inputVal.trim() || attachedImages.length) ? colors.accent.purple : 'transparent',
-            color: (inputVal.trim() || attachedImages.length) ? '#fff' : colors.text.dim,
-            transition: 'all .15s',
-          }}
-          onMouseEnter={(e) => { if (inputVal.trim() || attachedImages.length) e.currentTarget.style.background = colors.accent.purple + 'dd'; }}
-          onMouseLeave={(e) => { if (inputVal.trim() || attachedImages.length) e.currentTarget.style.background = colors.accent.purple; }}
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" />
-          </svg>
-        </button>
-      </div>
     </div>
   );
 }

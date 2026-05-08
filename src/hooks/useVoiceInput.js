@@ -21,28 +21,24 @@ function encodeWAV(float32, sampleRate) {
   return new Blob([buffer], { type: 'audio/wav' });
 }
 
-async function transcribeWAV(wavBlob) {
-  const apiKey = await window.flowade?.env.get('OPENAI_API_KEY');
-  if (!apiKey) return { text: null, error: 'no_key' };
-
-  const formData = new FormData();
-  formData.append('file', wavBlob, 'audio.wav');
-  formData.append('model', 'whisper-1');
-  formData.append('response_format', 'json');
-
-  const res = await fetch('https://api.openai.com/v1/audio/transcriptions', {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${apiKey}` },
-    body: formData,
+function wavBlobToBase64(blob) {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result;
+      resolve(dataUrl.split(',')[1]);
+    };
+    reader.readAsDataURL(blob);
   });
+}
 
-  if (!res.ok) {
-    if (res.status === 401) return { text: null, error: 'invalid_key' };
-    return { text: null, error: 'api_error' };
+async function transcribeWAV(wavBlob) {
+  // In Electron: use built-in Whisper via IPC
+  if (window.flowade?.whisper?.transcribe) {
+    const base64 = await wavBlobToBase64(wavBlob);
+    return window.flowade.whisper.transcribe(base64);
   }
-
-  const data = await res.json();
-  return { text: data.text?.trim() || null, error: null };
+  return { text: null, error: 'no_whisper' };
 }
 
 export function useVoiceInput({ onInterim, onFinal }) {
@@ -58,17 +54,49 @@ export function useVoiceInput({ onInterim, onFinal }) {
   const chunksRef = useRef([]);
   const silenceTimerRef = useRef(null);
   const busyRef = useRef(false);
+  const interimTimerRef = useRef(null);
+  const interimBusyRef = useRef(false);
   const startWhisperRef = useRef(null);
+  const modelPreloaded = useRef(false);
 
   onInterimRef.current = onInterim;
   onFinalRef.current = onFinal;
 
+  // Preload Whisper model on first mount so transcription is fast when needed
+  useEffect(() => {
+    if (modelPreloaded.current || !window.flowade?.whisper?.status) return;
+    modelPreloaded.current = true;
+    window.flowade.whisper.status().then(s => {
+      if (!s.ready && !s.loading) {
+        window.flowade.whisper.transcribe('').catch(() => {});
+      }
+    });
+  }, []);
+
   const stopWhisper = useCallback(() => {
     if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+    if (interimTimerRef.current) { clearInterval(interimTimerRef.current); interimTimerRef.current = null; }
     if (processorRef.current) { processorRef.current.disconnect(); processorRef.current = null; }
     if (contextRef.current) { contextRef.current.close().catch(() => {}); contextRef.current = null; }
     if (streamRef.current) { streamRef.current.getTracks().forEach(t => t.stop()); streamRef.current = null; }
     chunksRef.current = [];
+  }, []);
+
+  const sendInterim = useCallback(async () => {
+    if (chunksRef.current.length === 0 || interimBusyRef.current) return;
+    const chunks = [...chunksRef.current];
+    const totalLen = chunks.reduce((s, c) => s + c.length, 0);
+    if (totalLen < 1600) return;
+    const merged = new Float32Array(totalLen);
+    let off = 0;
+    for (const c of chunks) { merged.set(c, off); off += c.length; }
+    interimBusyRef.current = true;
+    try {
+      const wav = encodeWAV(merged, 16000);
+      const { text } = await transcribeWAV(wav);
+      if (text) onInterimRef.current(text);
+    } catch {}
+    interimBusyRef.current = false;
   }, []);
 
   const sendChunks = useCallback(async () => {
@@ -88,16 +116,6 @@ export function useVoiceInput({ onInterim, onFinal }) {
       const wav = encodeWAV(merged, 16000);
       const { text, error } = await transcribeWAV(wav);
 
-      if (error === 'no_key') {
-        setStatus('No OpenAI key — add in Settings > API Keys');
-        busyRef.current = false;
-        return;
-      }
-      if (error === 'invalid_key') {
-        setStatus('Invalid OpenAI key');
-        busyRef.current = false;
-        return;
-      }
       if (error) {
         setStatus('Transcription failed');
         busyRef.current = false;
@@ -181,6 +199,22 @@ export function useVoiceInput({ onInterim, onFinal }) {
 
   const startWhisper = useCallback(async () => {
     try {
+      setStatus('Loading voice model...');
+
+      // Wait for model to be ready
+      if (window.flowade?.whisper?.status) {
+        let ready = false;
+        while (!ready) {
+          const s = await window.flowade.whisper.status();
+          if (s.ready) { ready = true; break; }
+          if (!s.loading) {
+            window.flowade.whisper.transcribe('').catch(() => {});
+          }
+          setStatus('Loading voice model...');
+          await new Promise(r => setTimeout(r, 1000));
+        }
+      }
+
       setStatus('Starting mic...');
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: { sampleRate: 16000, channelCount: 1, echoCancellation: true, noiseSuppression: true },
@@ -203,9 +237,13 @@ export function useVoiceInput({ onInterim, onFinal }) {
           chunksRef.current.push(new Float32Array(data));
           setStatus('Hearing you...');
           if (silenceTimerRef.current) { clearTimeout(silenceTimerRef.current); silenceTimerRef.current = null; }
+          if (!interimTimerRef.current) {
+            interimTimerRef.current = setInterval(sendInterim, 1500);
+          }
         } else if (chunksRef.current.length > 0 && !silenceTimerRef.current) {
           silenceTimerRef.current = setTimeout(() => {
             silenceTimerRef.current = null;
+            if (interimTimerRef.current) { clearInterval(interimTimerRef.current); interimTimerRef.current = null; }
             sendChunks();
           }, 1200);
         }
@@ -217,7 +255,7 @@ export function useVoiceInput({ onInterim, onFinal }) {
       setStatus('Mic error: ' + err.message);
       setListening(false);
     }
-  }, [sendChunks]);
+  }, [sendChunks, sendInterim]);
 
   startWhisperRef.current = startWhisper;
 

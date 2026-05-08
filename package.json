@@ -14,6 +14,7 @@
     "postinstall": "node scripts/rebuild-pty.js"
   },
   "dependencies": {
+    "@huggingface/transformers": "^4.2.0",
     "@monaco-editor/react": "^4.7.0",
     "@supabase/supabase-js": "^2.105.3",
     "codeburn": "^0.9.6",

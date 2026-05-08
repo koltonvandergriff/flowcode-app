@@ -353,6 +353,80 @@ ipcMain.handle('dialog:saveImageTemp', async (_, { dataUrl, name }) => {
   return filePath;
 });
 
+ipcMain.handle('dialog:takeScreenshot', async () => {
+  const { desktopCapturer } = require('electron');
+  const fs = await import('fs');
+  const path = await import('path');
+  const os = await import('os');
+  try {
+    const sources = await desktopCapturer.getSources({ types: ['screen'], thumbnailSize: { width: 1920, height: 1080 } });
+    if (!sources.length) return null;
+    const thumbnail = sources[0].thumbnail;
+    const pngBuffer = thumbnail.toPNG();
+    const tmpDir = path.default.join(os.default.tmpdir(), 'flowade-images');
+    if (!fs.default.existsSync(tmpDir)) fs.default.mkdirSync(tmpDir, { recursive: true });
+    const filename = `screenshot-${Date.now()}.png`;
+    const filePath = path.default.join(tmpDir, filename);
+    fs.default.writeFileSync(filePath, pngBuffer);
+    const b64 = pngBuffer.toString('base64');
+    return { dataUrl: `data:image/png;base64,${b64}`, name: filename, filePath };
+  } catch (err) {
+    console.error('[Screenshot]', err);
+    return null;
+  }
+});
+
+// --- Local Whisper Transcription ---
+let whisperPipe = null;
+let whisperLoading = false;
+
+async function getWhisper() {
+  if (whisperPipe) return whisperPipe;
+  if (whisperLoading) {
+    while (!whisperPipe) await new Promise(r => setTimeout(r, 500));
+    return whisperPipe;
+  }
+  whisperLoading = true;
+  console.log('[Whisper] Loading model (first time downloads ~40MB)...');
+  const { pipeline } = await import('@huggingface/transformers');
+  whisperPipe = await pipeline('automatic-speech-recognition', 'onnx-community/whisper-tiny.en', {
+    dtype: 'q8',
+  });
+  console.log('[Whisper] Model ready');
+  return whisperPipe;
+}
+
+function wavToFloat32(buffer) {
+  const view = new DataView(buffer.buffer, buffer.byteOffset, buffer.byteLength);
+  const headerSize = 44;
+  const sampleCount = (buffer.byteLength - headerSize) / 2;
+  const float32 = new Float32Array(sampleCount);
+  for (let i = 0; i < sampleCount; i++) {
+    float32[i] = view.getInt16(headerSize + i * 2, true) / 32768;
+  }
+  return float32;
+}
+
+ipcMain.handle('whisper:status', () => ({
+  ready: !!whisperPipe,
+  loading: whisperLoading && !whisperPipe,
+}));
+
+ipcMain.handle('whisper:transcribe', async (_, wavBase64) => {
+  try {
+    const pipe = await getWhisper();
+    const buffer = Buffer.from(wavBase64, 'base64');
+    const float32 = wavToFloat32(buffer);
+    const result = await pipe(float32, { sampling_rate: 16000 });
+    let text = result.text?.trim() || '';
+    if (text && /^(.{1,4}\s*)\1{2,}$/i.test(text)) text = '';
+    return { text: text || null, error: null };
+  } catch (err) {
+    console.error('[Whisper] Transcription error:', err.message);
+    return { text: null, error: err.message };
+  }
+});
+
 // --- CodeBurn Analytics IPC ---
 
 ipcMain.handle('codeburn:report', async (_, { period }) => {
