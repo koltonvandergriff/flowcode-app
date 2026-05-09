@@ -21,6 +21,7 @@ import LoginScreenGlasshouse from './components/glasshouse/LoginScreenGlasshouse
 import OnboardingWizardGlasshouse from './components/glasshouse/OnboardingWizardGlasshouse';
 import SideNavGlasshouse from './components/glasshouse/SideNavGlasshouse';
 import HeaderGlasshouse from './components/glasshouse/HeaderGlasshouse';
+import OverviewGlasshouse from './components/glasshouse/OverviewGlasshouse';
 import { isGlasshouseEnabled } from './lib/glasshouseTheme';
 import PlanSelector from './components/PlanSelector';
 import HelpGuide from './components/HelpGuide';
@@ -162,6 +163,22 @@ function AppInner({ onLogout }) {
   const glass = isGlasshouseEnabled();
   const HeaderComponent = glass ? HeaderGlasshouse : Header;
   const SideNavComponent = glass ? SideNavGlasshouse : SideNav;
+
+  // Auto-open the glasshouse Overview once on first launch after onboarding.
+  // Subsequent sessions: user opens it from the sidebar Home icon.
+  useEffect(() => {
+    if (!glass) return;
+    try {
+      if (localStorage.getItem('flowade.overview.seen') !== '1') {
+        // Defer one frame so initial layout settles before the overlay paints.
+        requestAnimationFrame(() => {
+          setActiveLeftPanel('overview');
+          localStorage.setItem('flowade.overview.seen', '1');
+        });
+      }
+    } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Persistent layout state
   const loadLayout = () => {
@@ -359,7 +376,7 @@ function AppInner({ onLogout }) {
               }}
             />
 
-            {activeLeftPanel && (<>
+            {activeLeftPanel && activeLeftPanel !== 'memory' && activeLeftPanel !== 'overview' && (<>
               <div style={{
                 width: leftPanelWidth || (activeLeftPanel === 'code' ? 500 : 280),
                 minWidth: activeLeftPanel === 'code' ? 300 : 220,
@@ -478,6 +495,14 @@ function AppInner({ onLogout }) {
         <NotificationsPanel open={notificationsOpen} onClose={() => setNotificationsOpen(false)} />
         <CommandPalette open={cmdPaletteOpen} onClose={() => setCmdPaletteOpen(false)} actions={cmdActions} />
         <MemoryPanel open={activeLeftPanel === 'memory'} onToggle={() => setActiveLeftPanel(null)} />
+        {glass && (
+          <OverviewGlasshouse
+            open={activeLeftPanel === 'overview'}
+            onToggle={() => setActiveLeftPanel(null)}
+            userName={(() => { try { return JSON.parse(localStorage.getItem('flowade_auth_user') || '{}').name?.split(' ')[0] || 'there'; } catch { return 'there'; } })()}
+            onJump={(id) => setActiveLeftPanel(id)}
+          />
+        )}
     </div>
   );
 }
