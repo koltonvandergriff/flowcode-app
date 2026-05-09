@@ -1,0 +1,98 @@
+/*
+ * FlowADE Glasshouse design tokens.
+ *
+ * These cascade from <html> so any component can read them via var(--*).
+ * Components opt into the new look via the --theme attribute on <body>:
+ *   <body data-theme="glasshouse"> ... </body>
+ *
+ * The classic theme remains the default; switching is gated by the user's
+ * settings prefs (see src/lib/themes.js + ThemeProvider). When the flag is
+ * off, panels read these custom properties for color but the body overlay
+ * (scanline + grain) is suppressed so the existing UI doesn't get chrome
+ * effects it wasn't designed for.
+ */
+
+:root {
+  /* ---- Glasshouse palette ---- */
+  --gh-bg-0: #000000;
+  --gh-bg-1: #050509;
+  --gh-bg-2: #0a0a14;
+  --gh-glass: rgba(10, 14, 24, 0.55);
+  --gh-glass-edge: rgba(77, 230, 240, 0.08);
+  --gh-line: rgba(255, 255, 255, 0.06);
+  --gh-line-strong: rgba(255, 255, 255, 0.11);
+
+  --gh-ink: #f1f5f9;
+  --gh-ink-mute: #94a3b8;
+  --gh-ink-dim: #4a5168;
+
+  --gh-cy: #4de6f0;
+  --gh-cy-deep: #1aa9bc;
+  --gh-cy-glow: rgba(77, 230, 240, 0.35);
+  --gh-silver: #6b7a90;
+  --gh-silver-2: #98a4b8;
+
+  /* Status colors — semantic only, never decorative */
+  --gh-rd: #ff6b6b;
+  --gh-or: #ffb86b;
+  --gh-yl: #ffe566;
+  --gh-gn: #58e0a8;
+
+  /* ---- Typography ---- */
+  --gh-font-display: "Outfit", system-ui, sans-serif;
+  --gh-font-techno:  "Chakra Petch", "Outfit", sans-serif;
+  --gh-font-body:    "Outfit", system-ui, sans-serif;
+  --gh-font-mono:    "JetBrains Mono", ui-monospace, "Cascadia Code", monospace;
+
+  /* ---- Radii / shadows / motion ---- */
+  --gh-radius-sm: 6px;
+  --gh-radius-md: 10px;
+  --gh-radius-lg: 14px;
+  --gh-radius-xl: 18px;
+
+  --gh-shadow-glass: 0 24px 60px rgba(0, 0, 0, 0.5);
+  --gh-shadow-cy: 0 0 28px var(--gh-cy-glow);
+  --gh-shadow-pulse: 0 16px 56px rgba(255, 229, 102, 0.32);
+
+  --gh-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/* When the glasshouse theme is active, paint the page chrome — body bg, the
+   scanline + grain overlay, and a fade-up animation on view roots. Components
+   still need to opt into glasshouse classes for full effect. */
+body[data-theme="glasshouse"] {
+  background:
+    radial-gradient(1100px 600px at 75% -10%, rgba(77, 230, 240, 0.08), transparent 60%),
+    radial-gradient(900px 500px at 0% 110%, rgba(77, 230, 240, 0.04), transparent 60%),
+    var(--gh-bg-0);
+  color: var(--gh-ink);
+  font-family: var(--gh-font-body);
+}
+
+body[data-theme="glasshouse"]::before {
+  content: "";
+  position: fixed; inset: 0; pointer-events: none; z-index: 0;
+  background-image:
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.012) 0 1px, transparent 1px 3px),
+    radial-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+  background-size: 100% 3px, 4px 4px;
+  mix-blend-mode: screen;
+  opacity: 0.4;
+}
+
+body[data-theme="glasshouse"] > * {
+  position: relative;
+  z-index: 1;
+}
+
+@keyframes ghFadeUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Reduced-motion users: skip the entrance animation and pulse loops. */
+@media (prefers-reduced-motion: reduce) {
+  body[data-theme="glasshouse"] [data-gh-animate] {
+    animation: none !important;
+  }
+}
