@@ -22,6 +22,7 @@ import OnboardingWizardGlasshouse from './components/glasshouse/OnboardingWizard
 import SideNavGlasshouse from './components/glasshouse/SideNavGlasshouse';
 import HeaderGlasshouse from './components/glasshouse/HeaderGlasshouse';
 import OverviewGlasshouse from './components/glasshouse/OverviewGlasshouse';
+import AppShellGlasshouse from './components/glasshouse/AppShellGlasshouse';
 import { isGlasshouseEnabled } from './lib/glasshouseTheme';
 import PlanSelector from './components/PlanSelector';
 import HelpGuide from './components/HelpGuide';
@@ -161,8 +162,11 @@ function RightSidebarPanel({ open, onToggle, activeTab, onTabChange, onInsert })
 function AppInner({ onLogout }) {
   const { colors } = useTheme();
   const glass = isGlasshouseEnabled();
-  const HeaderComponent = glass ? HeaderGlasshouse : Header;
-  const SideNavComponent = glass ? SideNavGlasshouse : SideNav;
+  // When the Glasshouse theme is on, swap in the wholesale shell. Classic
+  // theme keeps the existing Header + UsagePanel + 44px sidenav layout.
+  if (glass) return <AppShellGlasshouse onLogout={onLogout} />;
+  const HeaderComponent = Header;
+  const SideNavComponent = SideNav;
   // Main content area swaps between 'terminals' (default) and 'overview'.
   // Side panels (memory, code, tasks, github) still render alongside the
   // current main content for terminals; overview renders alone.
