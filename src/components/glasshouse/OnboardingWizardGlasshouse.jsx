@@ -68,15 +68,12 @@ export default function OnboardingWizardGlasshouse({ onAuthenticated, onComplete
           <img src={logoFa} alt="FA" style={shell.logoFa} />
           <span style={shell.brand}>FlowADE</span>
         </div>
-        {step === 'signup' && (
-          <button onClick={onBackToLogin} style={shell.skipLink}>Already have an account? Sign in →</button>
-        )}
       </div>
 
       <Progress idx={idx} />
 
       <div style={shell.content}>
-        {step === 'signup'  && <StepAccount data={data} onSubmit={handleAccountDone} />}
+        {step === 'signup'  && <StepAccount data={data} onSubmit={handleAccountDone} onBackToLogin={onBackToLogin} />}
         {step === 'payment' && <StepPayment data={data} setData={setData} onNext={goNext} onBack={goPrev} />}
         {step === 'keys'    && <StepKeys data={data} setData={setData} onNext={goNext} onBack={goPrev} />}
         {step === 'layout'  && <StepLayout data={data} setData={setData} onNext={goNext} onBack={goPrev} />}
@@ -115,7 +112,7 @@ function Progress({ idx }) {
 // ---------------------------------------------------------------------------
 // Step 01 — Account
 // ---------------------------------------------------------------------------
-function StepAccount({ data, onSubmit }) {
+function StepAccount({ data, onSubmit, onBackToLogin }) {
   const [email, setEmail] = useState(data.email || '');
   const [password, setPassword] = useState('');
   const [name, setName] = useState(data.name || '');
@@ -173,7 +170,9 @@ function StepAccount({ data, onSubmit }) {
       </form>
 
       <div style={card.bottom}>
-        <span style={card.hint}>card collected next · $0 today · cancel any time before day 8</span>
+        <button type="button" onClick={onBackToLogin} style={btn.signInLink}>
+          Already have an account? Sign in →
+        </button>
         <button onClick={submit} disabled={loading} style={{ ...btn.primary, ...(loading ? btn.loading : null) }}>
           {loading ? 'Creating account…' : 'Continue to payment →'}
         </button>
@@ -656,6 +655,15 @@ const btn = {
     fontSize: 12, fontWeight: 700, letterSpacing: '0.04em',
   },
   loading: { opacity: 0.6, cursor: 'wait' },
+  signInLink: {
+    all: 'unset', cursor: 'pointer',
+    padding: '10px 16px', borderRadius: 9,
+    border: '1px solid rgba(255,255,255,0.13)',
+    color: '#94a3b8',
+    fontFamily: 'var(--gh-font-mono, monospace)',
+    fontSize: 12, fontWeight: 700, letterSpacing: '0.04em',
+    transition: 'all 0.15s',
+  },
   provider: {
     all: 'unset', cursor: 'pointer',
     padding: 11, borderRadius: 8,
