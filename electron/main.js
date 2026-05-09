@@ -94,13 +94,15 @@ function createSplashWindow() {
 function createWindow() {
   const { width, height } = screen.getPrimaryDisplay().workAreaSize;
 
-  const bounds = sessionStore.getWindowBounds() || {
-    width: Math.min(1600, width),
-    height: Math.min(1000, height),
-  };
+  const saved = sessionStore.getWindowBounds();
+  const wasMaximized = !!(saved && saved.isMaximized);
+  // Strip the persisted isMaximized flag before passing to BrowserWindow ctor.
+  const ctorBounds = saved && (saved.x != null && saved.y != null && saved.width && saved.height)
+    ? { x: saved.x, y: saved.y, width: saved.width, height: saved.height }
+    : { width: Math.min(1600, width), height: Math.min(1000, height) };
 
   mainWindow = new BrowserWindow({
-    ...bounds,
+    ...ctorBounds,
     minWidth: 800,
     minHeight: 600,
     title: 'FlowADE',
@@ -123,8 +125,13 @@ function createWindow() {
     },
   });
 
-  const savedBounds = sessionStore.getWindowBounds();
-  if (!savedBounds) mainWindow.maximize();
+  if (!saved) {
+    // First launch — open maximized so the default window matches the OS.
+    mainWindow.maximize();
+  } else if (wasMaximized) {
+    // Restore the maximized state the user had on last close.
+    mainWindow.maximize();
+  }
 
   const freshMode = process.argv.includes('--fresh') || process.env.FLOWADE_FRESH === '1';
 
@@ -157,7 +164,13 @@ function createWindow() {
   });
 
   mainWindow.on('close', (e) => {
-    sessionStore.saveWindowBounds(mainWindow.getBounds());
+    // Persist windowed bounds + maximized state. When maximized,
+    // getBounds() returns the screen-filling rect; we save the
+    // last-known un-maximized rect via getNormalBounds() so a future
+    // un-maximize lands at the right size.
+    const isMax = mainWindow.isMaximized();
+    const normalBounds = (mainWindow.getNormalBounds && mainWindow.getNormalBounds()) || mainWindow.getBounds();
+    sessionStore.saveWindowBounds({ ...normalBounds, isMaximized: isMax });
     if (!forceQuit) {
       e.preventDefault();
       mainWindow?.webContents.send('app:beforeClose');

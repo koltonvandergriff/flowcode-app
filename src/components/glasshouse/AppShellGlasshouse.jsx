@@ -28,6 +28,9 @@ import CommandPalette from '../CommandPalette';
 import UpdateNotification from '../UpdateNotification';
 import SideNavGlasshouse from './SideNavGlasshouse';
 import OverviewGlasshouse from './OverviewGlasshouse';
+import PricingGlasshouse from './PricingGlasshouse';
+import SettingsGlasshouse from './SettingsGlasshouse';
+import AIChatGlasshouse from './AIChatGlasshouse';
 
 const FONT_DISP = 'var(--gh-font-display, "Outfit", sans-serif)';
 const FONT_TECH = 'var(--gh-font-techno, "Chakra Petch", sans-serif)';
@@ -79,8 +82,7 @@ export default function AppShellGlasshouse({ onLogout }) {
   const userFirstName = authUser?.name?.split(' ')?.[0] || (authUser?.email?.split('@')?.[0]) || 'there';
 
   const handleNav = useCallback((id) => {
-    if (id === 'settings') { setSettingsOpen(true); return; }
-    if (id === 'pricing')  { setSubscriptionOpen(true); return; }
+    // Settings and Pricing are inline pages now (not modal overlays).
     setPage(id);
   }, []);
 
@@ -113,7 +115,7 @@ export default function AppShellGlasshouse({ onLogout }) {
                 <TerminalGrid dangerFlags={{}} onToggleDanger={() => {}} />
               </div>
             )}
-            {page === 'chat' && <ComingSoon title="AI Chat" subtitle="Standalone AI chat is on the roadmap. For now, ask Claude inside any terminal pane." />}
+            {page === 'chat' && <AIChatGlasshouse />}
             {page === 'tasks' && (
               <div style={shell.tasks}>
                 <TaskBoard open={true} onToggle={() => setPage('overview')} />
@@ -122,6 +124,8 @@ export default function AppShellGlasshouse({ onLogout }) {
             {page === 'memory' && (
               <MemoryPanel open={true} embedded={true} onToggle={() => setPage('overview')} />
             )}
+            {page === 'settings' && <SettingsGlasshouse onLogout={onLogout} />}
+            {page === 'pricing'  && <PricingGlasshouse />}
           </ErrorBoundary>
         </div>
       </main>
