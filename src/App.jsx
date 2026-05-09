@@ -17,6 +17,9 @@ import FileActivity from './components/FileActivity';
 import PromptTemplates from './components/PromptTemplates';
 import LoginScreen from './components/LoginScreen';
 import OnboardingWizard from './components/OnboardingWizard';
+import LoginScreenGlasshouse from './components/glasshouse/LoginScreenGlasshouse';
+import OnboardingWizardGlasshouse from './components/glasshouse/OnboardingWizardGlasshouse';
+import { isGlasshouseEnabled } from './lib/glasshouseTheme';
 import PlanSelector from './components/PlanSelector';
 import HelpGuide from './components/HelpGuide';
 import FeedbackPanel from './components/FeedbackPanel';
@@ -483,6 +486,10 @@ function AuthGate() {
   const [planSelected, setPlanSelected] = useState(
     () => localStorage.getItem('flowade_plan_selected') === 'true'
   );
+  // Glasshouse-only: signup intent toggles the wizard before the user is
+  // authenticated. The wizard's first step actually creates the account.
+  const [signingUp, setSigningUp] = useState(false);
+  const glasshouse = isGlasshouseEnabled();
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -503,8 +510,52 @@ function AuthGate() {
     });
   }, []);
 
+  const finishOnboarding = () => {
+    localStorage.setItem('flowade_onboarding_complete', 'true');
+    localStorage.setItem('flowade_plan_selected', 'true');
+    setOnboarded(true);
+    setPlanSelected(true);
+  };
+
   if (!authChecked) return null;
 
+  // ---- Glasshouse path ----
+  if (glasshouse) {
+    if (!authed && !signingUp) {
+      return (
+        <LoginScreenGlasshouse
+          onAuthenticated={() => setAuthed(true)}
+          onStartSignup={() => setSigningUp(true)}
+        />
+      );
+    }
+    if (!authed && signingUp) {
+      // Wizard step 01 will call signup(); when it succeeds, mark authed.
+      return (
+        <OnboardingWizardGlasshouse
+          startStep="signup"
+          onAuthenticated={() => setAuthed(true)}
+          onComplete={finishOnboarding}
+          onBackToLogin={() => setSigningUp(false)}
+        />
+      );
+    }
+    // Authenticated but onboarding not yet complete — re-enter wizard at
+    // payment step (account already exists).
+    if (authed && !(onboarded && planSelected)) {
+      return (
+        <OnboardingWizardGlasshouse
+          startStep="payment"
+          onAuthenticated={() => {}}
+          onComplete={finishOnboarding}
+          onBackToLogin={() => { logout(); setAuthed(false); }}
+        />
+      );
+    }
+    // Onboarded — fall through to the regular app shell below.
+  }
+
+  // ---- Classic path (legacy) ----
   if (!authed) {
     return <LoginScreen onAuthenticated={() => setAuthed(true)} />;
   }
