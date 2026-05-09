@@ -61,7 +61,7 @@ const TYPES = [
   { id: 'note', label: 'Note', icon: '📝', color: '#94a3b8' },
 ];
 
-export default function MemoryPanel({ open, onToggle }) {
+export default function MemoryPanel({ open, onToggle, embedded = false }) {
   const [entries, setEntries] = useState([]);
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -270,28 +270,50 @@ export default function MemoryPanel({ open, onToggle }) {
 
   if (!open) return null;
 
-  return (
-    <div
-      ref={overlayRef}
-      onMouseDown={(e) => { overlayMouseDownRef.current = e.target === overlayRef.current; }}
-      onClick={(e) => {
-        const downOnOverlay = overlayMouseDownRef.current;
-        overlayMouseDownRef.current = false;
-        if (downOnOverlay && e.target === overlayRef.current) onToggle();
-      }}
-      style={{
+  const wrapperStyle = embedded
+    ? {
+        // Inline rendering — fills the parent flex slot, no backdrop, no
+        // close-on-outside-click. Used when the panel is mounted as a main
+        // view via the glasshouse sidebar.
+        flex: 1, minWidth: 0, minHeight: 0,
+        display: 'flex', alignItems: 'stretch', justifyContent: 'stretch',
+        padding: '0 6px 6px', opacity: 1,
+      }
+    : {
+        // Default: full-screen modal overlay.
         position: 'fixed', inset: 0, zIndex: 9000,
         background: 'rgba(2, 2, 8, 0.32)',
         backdropFilter: 'blur(3px)',
         WebkitBackdropFilter: 'blur(3px)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         opacity, transition: 'opacity 0.35s cubic-bezier(0.4, 0, 0.2, 1)',
-      }}
-    >
-      <div style={{
+      };
+
+  const cardStyle = embedded
+    ? {
+        flex: 1, width: '100%', height: '100%',
+        background: 'rgba(8, 8, 18, 0.55)',
+        border: '1px solid rgba(255,255,255,0.08)',
+      }
+    : {
         width: '72vw', height: '78vh', maxWidth: 1400, maxHeight: 1000,
         background: 'rgba(8, 8, 18, 0.55)',
         border: '1px solid rgba(255,255,255,0.08)',
+      };
+
+  return (
+    <div
+      ref={overlayRef}
+      onMouseDown={embedded ? undefined : (e) => { overlayMouseDownRef.current = e.target === overlayRef.current; }}
+      onClick={embedded ? undefined : (e) => {
+        const downOnOverlay = overlayMouseDownRef.current;
+        overlayMouseDownRef.current = false;
+        if (downOnOverlay && e.target === overlayRef.current) onToggle();
+      }}
+      style={wrapperStyle}
+    >
+      <div style={{
+        ...cardStyle,
         borderRadius: 16,
         backdropFilter: 'blur(14px) saturate(1.1)',
         WebkitBackdropFilter: 'blur(14px) saturate(1.1)',

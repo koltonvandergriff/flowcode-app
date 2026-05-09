@@ -367,7 +367,12 @@ function AppInner({ onLogout }) {
 
           <div style={{ display: 'flex', gap: 0, flex: 1, minHeight: 0, overflow: 'hidden' }}>
             <SideNavComponent
-              activePanel={mainContent === 'overview' ? 'overview' : activeLeftPanel}
+              activePanel={
+                mainContent === 'overview' ? 'overview' :
+                mainContent === 'memory'   ? 'memory'   :
+                mainContent === 'terminals' && !activeLeftPanel ? 'terminals' :
+                activeLeftPanel
+              }
               onSelect={(id) => {
                 if (id === 'settings') { setSettingsOpen(true); return; }
                 if (id === 'overview') {
@@ -375,8 +380,19 @@ function AppInner({ onLogout }) {
                   setActiveLeftPanel(null);
                   return;
                 }
-                // Switching to any panel other than overview returns the
-                // main area to the terminal grid + opens that side panel.
+                if (id === 'terminals') {
+                  setMainContent('terminals');
+                  setActiveLeftPanel(null);
+                  return;
+                }
+                // Glasshouse: Memory is a main view (replaces terminals).
+                if (id === 'memory' && glass) {
+                  setMainContent('memory');
+                  setActiveLeftPanel(null);
+                  return;
+                }
+                // Classic Memory + every other panel = inline left panel
+                // alongside terminal grid.
                 setMainContent('terminals');
                 setActiveLeftPanel(id);
                 setLeftPanelWidth(null);
@@ -387,11 +403,20 @@ function AppInner({ onLogout }) {
               <OverviewGlasshouse
                 userName={(() => { try { return JSON.parse(localStorage.getItem('flowade_auth_user') || '{}').name?.split(' ')[0] || 'there'; } catch { return 'there'; } })()}
                 onJump={(id) => {
+                  if (id === 'memory') { setMainContent('memory'); setActiveLeftPanel(null); return; }
                   setMainContent('terminals');
                   setActiveLeftPanel(id);
                 }}
               />
             ) : <></>}
+
+            {mainContent === 'memory' && glass && (
+              <MemoryPanel
+                open={true}
+                embedded={true}
+                onToggle={() => setMainContent('terminals')}
+              />
+            )}
 
             {mainContent !== 'overview' && activeLeftPanel && activeLeftPanel !== 'memory' && (<>
               <div style={{
@@ -427,7 +452,7 @@ function AppInner({ onLogout }) {
               }} />
             </>)}
 
-            {mainContent !== 'overview' && (
+            {mainContent !== 'overview' && mainContent !== 'memory' && (
               <div style={{ flex: 1, minWidth: 200, padding: '0 6px', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
                 <ErrorBoundary name="Terminal Grid">
                   <TerminalGrid
