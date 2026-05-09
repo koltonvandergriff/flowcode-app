@@ -19,6 +19,8 @@ import LoginScreen from './components/LoginScreen';
 import OnboardingWizard from './components/OnboardingWizard';
 import LoginScreenGlasshouse from './components/glasshouse/LoginScreenGlasshouse';
 import OnboardingWizardGlasshouse from './components/glasshouse/OnboardingWizardGlasshouse';
+import SideNavGlasshouse from './components/glasshouse/SideNavGlasshouse';
+import HeaderGlasshouse from './components/glasshouse/HeaderGlasshouse';
 import { isGlasshouseEnabled } from './lib/glasshouseTheme';
 import PlanSelector from './components/PlanSelector';
 import HelpGuide from './components/HelpGuide';
@@ -157,6 +159,9 @@ function RightSidebarPanel({ open, onToggle, activeTab, onTabChange, onInsert })
 
 function AppInner({ onLogout }) {
   const { colors } = useTheme();
+  const glass = isGlasshouseEnabled();
+  const HeaderComponent = glass ? HeaderGlasshouse : Header;
+  const SideNavComponent = glass ? SideNavGlasshouse : SideNav;
 
   // Persistent layout state
   const loadLayout = () => {
@@ -322,7 +327,7 @@ function AppInner({ onLogout }) {
         )}
 
         <UpdateNotification />
-        <Header
+        <HeaderComponent
           onOpenSettings={() => setSettingsOpen(true)}
           onOpenHelp={() => setHelpOpen(true)}
           onOpenFeedback={() => setFeedbackOpen(true)}
@@ -345,7 +350,7 @@ function AppInner({ onLogout }) {
           </ErrorBoundary>
 
           <div style={{ display: 'flex', gap: 0, flex: 1, minHeight: 0, overflow: 'hidden' }}>
-            <SideNav
+            <SideNavComponent
               activePanel={activeLeftPanel}
               onSelect={(id) => {
                 if (id === 'settings') { setSettingsOpen(true); return; }
