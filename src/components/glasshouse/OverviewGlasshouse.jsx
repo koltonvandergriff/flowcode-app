@@ -1,52 +1,24 @@
-// Glasshouse Overview / home dashboard. Full-window overlay (same pattern
-// as MemoryPanel) showing greeting, stat row, recent activity, quick
-// actions, workspaces. Numbers are placeholders — wire to real data later.
-import { useEffect, useRef, useState } from 'react';
+// Glasshouse Overview — main view, not an overlay. Renders inline beside the
+// sidebar where the terminal grid would otherwise sit. The greeting + stat
+// row + activity feed + quick actions are the post-login landing page.
 
 const FONT_DISP = 'var(--gh-font-display, "Outfit", sans-serif)';
 const FONT_TECH = 'var(--gh-font-techno, "Chakra Petch", sans-serif)';
 const FONT_MONO = 'var(--gh-font-mono, "JetBrains Mono", monospace)';
 
-export default function OverviewGlasshouse({ open, onToggle, userName = 'there', onJump }) {
-  const [opacity, setOpacity] = useState(0);
-  const overlayRef = useRef(null);
-
-  useEffect(() => {
-    if (!open) { setOpacity(0); return; }
-    requestAnimationFrame(() => setOpacity(1));
-  }, [open]);
-
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e) => { if (e.key === 'Escape') onToggle(); };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [open, onToggle]);
-
-  if (!open) return null;
-
+export default function OverviewGlasshouse({ userName = 'there', onJump }) {
   const greeting = greetingFor(new Date().getHours());
 
   return (
-    <div
-      ref={overlayRef}
-      onClick={(e) => { if (e.target === overlayRef.current) onToggle(); }}
-      style={{
-        position: 'fixed', inset: 0, zIndex: 9000,
-        background: 'rgba(2, 2, 8, 0.32)',
-        backdropFilter: 'blur(3px)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        opacity, transition: 'opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-      }}
-    >
+    <div style={s.root}>
       <div
         style={{
-          width: '78vw', height: '82vh', maxWidth: 1280, maxHeight: 920,
+          flex: 1, minHeight: 0, minWidth: 0,
           background: 'rgba(8, 8, 18, 0.55)',
           border: '1px solid rgba(77,230,240,0.07)',
-          borderRadius: 16,
+          borderRadius: 12,
           backdropFilter: 'blur(16px) saturate(1.15)',
-          boxShadow: '0 30px 80px rgba(0,0,0,0.55), 0 0 0 1px rgba(77,230,240,0.04)',
+          boxShadow: '0 16px 48px rgba(0,0,0,0.4), inset 0 0 0 1px rgba(77,230,240,0.04)',
           color: '#f1f5f9',
           fontFamily: FONT_MONO,
           display: 'flex', flexDirection: 'column',
@@ -67,7 +39,6 @@ export default function OverviewGlasshouse({ open, onToggle, userName = 'there',
             <span style={s.pill}>
               <span style={{ ...s.pillDot, background: '#4de6f0' }} /> Synced · 405
             </span>
-            <button onClick={onToggle} style={s.iconBtn} title="Close (Esc)">✕</button>
           </div>
         </div>
 
@@ -117,11 +88,6 @@ export default function OverviewGlasshouse({ open, onToggle, userName = 'there',
               </Panel>
             </div>
           </div>
-        </div>
-
-        {/* Footer hint */}
-        <div style={s.footHint}>
-          ESC to close · ⌘ ↑ to reopen
         </div>
 
         <style>{`
@@ -223,6 +189,10 @@ function Workspace({ name, meta, live }) {
 // Styles
 // ---------------------------------------------------------------------------
 const s = {
+  root: {
+    flex: 1, minWidth: 0, minHeight: 0, padding: '0 6px 6px',
+    display: 'flex', flexDirection: 'column',
+  },
   topbar: {
     display: 'flex', alignItems: 'center', gap: 16,
     padding: '12px 24px',

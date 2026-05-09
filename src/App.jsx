@@ -163,22 +163,21 @@ function AppInner({ onLogout }) {
   const glass = isGlasshouseEnabled();
   const HeaderComponent = glass ? HeaderGlasshouse : Header;
   const SideNavComponent = glass ? SideNavGlasshouse : SideNav;
-
-  // Auto-open the glasshouse Overview once on first launch after onboarding.
-  // Subsequent sessions: user opens it from the sidebar Home icon.
-  useEffect(() => {
-    if (!glass) return;
+  // Main content area swaps between 'terminals' (default) and 'overview'.
+  // Side panels (memory, code, tasks, github) still render alongside the
+  // current main content for terminals; overview renders alone.
+  const [mainContent, setMainContent] = useState(() => {
+    if (!glass) return 'terminals';
     try {
-      if (localStorage.getItem('flowade.overview.seen') !== '1') {
-        // Defer one frame so initial layout settles before the overlay paints.
-        requestAnimationFrame(() => {
-          setActiveLeftPanel('overview');
-          localStorage.setItem('flowade.overview.seen', '1');
-        });
-      }
-    } catch {}
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+      return localStorage.getItem('flowade.overview.seen') === '1' ? 'terminals' : 'overview';
+    } catch { return 'terminals'; }
+  });
+
+  useEffect(() => {
+    if (mainContent === 'overview' && glass) {
+      try { localStorage.setItem('flowade.overview.seen', '1'); } catch {}
+    }
+  }, [mainContent, glass]);
 
   // Persistent layout state
   const loadLayout = () => {
@@ -368,15 +367,33 @@ function AppInner({ onLogout }) {
 
           <div style={{ display: 'flex', gap: 0, flex: 1, minHeight: 0, overflow: 'hidden' }}>
             <SideNavComponent
-              activePanel={activeLeftPanel}
+              activePanel={mainContent === 'overview' ? 'overview' : activeLeftPanel}
               onSelect={(id) => {
                 if (id === 'settings') { setSettingsOpen(true); return; }
+                if (id === 'overview') {
+                  setMainContent('overview');
+                  setActiveLeftPanel(null);
+                  return;
+                }
+                // Switching to any panel other than overview returns the
+                // main area to the terminal grid + opens that side panel.
+                setMainContent('terminals');
                 setActiveLeftPanel(id);
                 setLeftPanelWidth(null);
               }}
             />
 
-            {activeLeftPanel && activeLeftPanel !== 'memory' && activeLeftPanel !== 'overview' && (<>
+            {mainContent === 'overview' && glass ? (
+              <OverviewGlasshouse
+                userName={(() => { try { return JSON.parse(localStorage.getItem('flowade_auth_user') || '{}').name?.split(' ')[0] || 'there'; } catch { return 'there'; } })()}
+                onJump={(id) => {
+                  setMainContent('terminals');
+                  setActiveLeftPanel(id);
+                }}
+              />
+            ) : <></>}
+
+            {mainContent !== 'overview' && activeLeftPanel && activeLeftPanel !== 'memory' && (<>
               <div style={{
                 width: leftPanelWidth || (activeLeftPanel === 'code' ? 500 : 280),
                 minWidth: activeLeftPanel === 'code' ? 300 : 220,
@@ -410,14 +427,16 @@ function AppInner({ onLogout }) {
               }} />
             </>)}
 
-            <div style={{ flex: 1, minWidth: 200, padding: '0 6px', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-              <ErrorBoundary name="Terminal Grid">
-                <TerminalGrid
-                  dangerFlags={dangerFlags}
-                  onToggleDanger={toggleDanger}
-                />
-              </ErrorBoundary>
-            </div>
+            {mainContent !== 'overview' && (
+              <div style={{ flex: 1, minWidth: 200, padding: '0 6px', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+                <ErrorBoundary name="Terminal Grid">
+                  <TerminalGrid
+                    dangerFlags={dangerFlags}
+                    onToggleDanger={toggleDanger}
+                  />
+                </ErrorBoundary>
+              </div>
+            )}
 
             {browserOpen && (
               <ResizeHandle direction="vertical" onResize={(delta) => {
@@ -495,14 +514,6 @@ function AppInner({ onLogout }) {
         <NotificationsPanel open={notificationsOpen} onClose={() => setNotificationsOpen(false)} />
         <CommandPalette open={cmdPaletteOpen} onClose={() => setCmdPaletteOpen(false)} actions={cmdActions} />
         <MemoryPanel open={activeLeftPanel === 'memory'} onToggle={() => setActiveLeftPanel(null)} />
-        {glass && (
-          <OverviewGlasshouse
-            open={activeLeftPanel === 'overview'}
-            onToggle={() => setActiveLeftPanel(null)}
-            userName={(() => { try { return JSON.parse(localStorage.getItem('flowade_auth_user') || '{}').name?.split(' ')[0] || 'there'; } catch { return 'there'; } })()}
-            onJump={(id) => setActiveLeftPanel(id)}
-          />
-        )}
     </div>
   );
 }
