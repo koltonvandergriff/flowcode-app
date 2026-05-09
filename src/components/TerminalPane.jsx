@@ -663,6 +663,7 @@ export default function TerminalPane({
           cols: term.cols,
           rows: term.rows,
           cwd: cwd || undefined,
+          provider,
         });
 
         if (!info) { setStatus('error'); return; }

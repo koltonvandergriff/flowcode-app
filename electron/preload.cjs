@@ -34,6 +34,18 @@ contextBridge.exposeInMainWorld('flowade', {
     load: () => ipcRenderer.invoke('session:load'),
   },
 
+  auth: {
+    setSession: (accessToken, refreshToken) => ipcRenderer.invoke('auth:setSession', { accessToken, refreshToken }),
+    getUser: () => ipcRenderer.invoke('auth:getUser'),
+    getSubscription: () => ipcRenderer.invoke('auth:getSubscription'),
+    logout: () => ipcRenderer.invoke('auth:logout'),
+    onAuthStateChange: (callback) => {
+      const handler = (_, data) => callback(data);
+      ipcRenderer.on('auth:stateChange', handler);
+      return () => ipcRenderer.removeListener('auth:stateChange', handler);
+    },
+  },
+
   cost: {
     getUsage: () => ipcRenderer.invoke('cost:getUsage'),
     track: (data) => ipcRenderer.send('cost:track', data),
@@ -91,6 +103,46 @@ contextBridge.exposeInMainWorld('flowade', {
     update: (id, updates) => ipcRenderer.invoke('memory:update', { id, updates }),
     delete: (id) => ipcRenderer.invoke('memory:delete', id),
     search: (query) => ipcRenderer.invoke('memory:search', query),
+    getStatus: () => ipcRenderer.invoke('memory:status'),
+    syncNow: () => ipcRenderer.invoke('memory:syncNow'),
+    realtimeOn: () => ipcRenderer.invoke('memory:realtimeOn'),
+    realtimeOff: () => ipcRenderer.invoke('memory:realtimeOff'),
+    listDeleted: () => ipcRenderer.invoke('memory:listDeleted'),
+    restore: (id) => ipcRenderer.invoke('memory:restore', id),
+    onChanged: (callback) => {
+      const handler = () => callback();
+      ipcRenderer.on('memory:changed', handler);
+      return () => ipcRenderer.removeListener('memory:changed', handler);
+    },
+    onStatus: (callback) => {
+      const handler = (_, status) => callback(status);
+      ipcRenderer.on('memory:status', handler);
+      return () => ipcRenderer.removeListener('memory:status', handler);
+    },
+    embeddings: {
+      backfill: () => ipcRenderer.invoke('memory:embeddings:backfill'),
+      search: (query, opts) => ipcRenderer.invoke('memory:embeddings:search', { query, ...(opts || {}) }),
+      onProgress: (callback) => {
+        const handler = (_, msg) => callback(msg);
+        ipcRenderer.on('memory:embeddings:progress', handler);
+        return () => ipcRenderer.removeListener('memory:embeddings:progress', handler);
+      },
+    },
+    categories: {
+      list: () => ipcRenderer.invoke('memory:categories:list'),
+      create: (body) => ipcRenderer.invoke('memory:categories:create', body),
+      update: (id, patch) => ipcRenderer.invoke('memory:categories:update', { id, patch }),
+      delete: (id) => ipcRenderer.invoke('memory:categories:delete', id),
+      assign: (memoryId, categoryId) =>
+        ipcRenderer.invoke('memory:categories:assign', { memoryId, categoryId }),
+      persistTree: (tree) => ipcRenderer.invoke('memory:categories:persistTree', tree),
+      aiCategorize: (opts) => ipcRenderer.invoke('memory:categories:aiCategorize', opts || {}),
+      onProgress: (callback) => {
+        const handler = (_, msg) => callback(msg);
+        ipcRenderer.on('memory:categories:progress', handler);
+        return () => ipcRenderer.removeListener('memory:categories:progress', handler);
+      },
+    },
   },
 
   tasks: {

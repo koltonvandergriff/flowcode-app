@@ -366,9 +366,7 @@ function AppInner({ onLogout }) {
                   {activeLeftPanel === 'tasks' && (
                     <TaskBoard open={true} onToggle={() => setActiveLeftPanel(null)} />
                   )}
-                  {activeLeftPanel === 'memory' && (
-                    <MemoryPanel open={true} onToggle={() => setActiveLeftPanel(null)} />
-                  )}
+                  {activeLeftPanel === 'memory' && null}
                   {activeLeftPanel === 'github' && (
                     <GitHubPanel open={true} onToggle={() => setActiveLeftPanel(null)} />
                   )}
@@ -471,6 +469,7 @@ function AppInner({ onLogout }) {
         <AnalyticsDashboard open={analyticsOpen} onClose={() => setAnalyticsOpen(false)} />
         <NotificationsPanel open={notificationsOpen} onClose={() => setNotificationsOpen(false)} />
         <CommandPalette open={cmdPaletteOpen} onClose={() => setCmdPaletteOpen(false)} actions={cmdActions} />
+        <MemoryPanel open={activeLeftPanel === 'memory'} onToggle={() => setActiveLeftPanel(null)} />
     </div>
   );
 }

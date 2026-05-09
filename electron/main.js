@@ -15,7 +15,8 @@ import { PluginManager } from './pluginManager.js';
 import { ClaudeUsageWatcher } from './claudeUsageWatcher.js';
 import { MemoryStore } from './memoryStore.js';
 import { TerminalNotifier } from './terminalNotifier.js';
-import { readFileSync, writeFileSync, readdirSync, statSync, existsSync } from 'fs';
+import { setAuthSession, getAuthUser, clearAuthSession, supabase } from './supabaseClient.js';
+import { readFileSync, writeFileSync, readdirSync, statSync, existsSync, mkdirSync } from 'fs';
 
 const execFileAsync = promisify(execFile);
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -40,9 +41,34 @@ crashReporter.init();
 const pluginManager = new PluginManager(settingsStore);
 const claudeUsageWatcher = new ClaudeUsageWatcher(costTracker, settingsStore);
 const memoryStore = new MemoryStore();
+memoryStore.setOnChange(() => {
+  mainWindow?.webContents.send('memory:changed');
+  for (const [, win] of childWindows) {
+    if (!win.isDestroyed()) win.webContents.send('memory:changed');
+  }
+});
+memoryStore.setOnStatusChange((status) => {
+  mainWindow?.webContents.send('memory:status', status);
+  for (const [, win] of childWindows) {
+    if (!win.isDestroyed()) win.webContents.send('memory:status', status);
+  }
+});
 const terminalNotifier = new TerminalNotifier(envStore, (event) => {
   mainWindow?.webContents.send('notify:event', event);
 });
+
+(async () => {
+  // Wait for the keychain to populate the in-memory secret cache so that
+  // envStore.get() returns real values everywhere it's called synchronously.
+  try { await envStore.whenReady(); } catch {}
+  try {
+    const user = await getAuthUser();
+    if (user) {
+      memoryStore.setUserId(user.id);
+      console.log('[Auth] Restored session for user:', user.id);
+    }
+  } catch {}
+})();
 
 function createSplashWindow() {
   splashWindow = new BrowserWindow({
@@ -149,12 +175,70 @@ function createWindow() {
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
+
+  // On focus, re-check tier (catches upgrades) and drain — cheap event-driven
+  // catch-up instead of a recurring timer. fetchTier respects 5min TTL.
+  mainWindow.on('focus', async () => {
+    try {
+      await memoryStore.fetchTier();
+      await memoryStore.drain();
+    } catch {}
+  });
+}
+
+// --- MCP Config ---
+
+function ensureMcpConfig(cwd) {
+  try {
+    const mcpPath = join(cwd, '.mcp.json');
+    const mcpServerScript = join(__dirname, '..', 'mcp-server', 'index.js').replace(/\\/g, '/');
+
+    let config = {};
+    if (existsSync(mcpPath)) {
+      try { config = JSON.parse(readFileSync(mcpPath, 'utf8')); } catch {}
+    }
+
+    if (!config.mcpServers) config.mcpServers = {};
+    config.mcpServers.flowade = {
+      command: 'node',
+      args: [mcpServerScript],
+    };
+
+    writeFileSync(mcpPath, JSON.stringify(config, null, 2), 'utf8');
+
+    // Auto-allow FlowADE MCP tools so Claude doesn't prompt each time
+    const claudeDir = join(cwd, '.claude');
+    if (!existsSync(claudeDir)) mkdirSync(claudeDir, { recursive: true });
+    const settingsPath = join(claudeDir, 'settings.json');
+
+    let settings = {};
+    if (existsSync(settingsPath)) {
+      try { settings = JSON.parse(readFileSync(settingsPath, 'utf8')); } catch {}
+    }
+
+    if (!settings.permissions) settings.permissions = {};
+    if (!Array.isArray(settings.permissions.allow)) settings.permissions.allow = [];
+
+    const mcpPattern = 'mcp__flowade__*';
+    if (!settings.permissions.allow.includes(mcpPattern)) {
+      settings.permissions.allow.push(mcpPattern);
+      writeFileSync(settingsPath, JSON.stringify(settings, null, 2), 'utf8');
+    }
+  } catch (err) {
+    console.error('[MCP] Failed to write MCP config:', err.message);
+  }
 }
 
 // --- Terminal IPC ---
 
 ipcMain.handle('terminal:spawn', (_, opts) => {
   const id = opts.id || `term-${Date.now()}`;
+
+  if (opts.provider === 'claude' || opts.provider === 'aider') {
+    const spawnCwd = opts.cwd || join(process.env.USERPROFILE || process.env.HOME, 'Desktop', 'Claude');
+    ensureMcpConfig(spawnCwd);
+  }
+
   const info = ptyManager.spawn(id, opts);
 
   if (!info.existing) {
@@ -234,6 +318,45 @@ ipcMain.handle('workspace:getActive', () => sessionStore.getActiveWorkspace());
 ipcMain.handle('session:save', (_, state) => sessionStore.saveSessionState(state));
 ipcMain.handle('session:load', () => sessionStore.loadSessionState());
 
+// --- Auth IPC ---
+
+ipcMain.handle('auth:setSession', async (_, { accessToken, refreshToken }) => {
+  try {
+    await setAuthSession(accessToken, refreshToken);
+    const user = await getAuthUser();
+    if (user) {
+      memoryStore.setUserId(user.id);
+      console.log('[Auth] Session set for user:', user.id);
+    }
+    return { success: true, userId: user?.id };
+  } catch (err) {
+    console.error('[Auth] setSession failed:', err.message);
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('auth:getUser', async () => {
+  return await getAuthUser();
+});
+
+ipcMain.handle('auth:getSubscription', async () => {
+  const user = await getAuthUser();
+  if (!user) return null;
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('subscription_tier, subscription_status, subscription_expires_at')
+    .eq('id', user.id)
+    .single();
+  if (error) { console.error('[Auth] getSubscription error:', error.message); return null; }
+  return data;
+});
+
+ipcMain.handle('auth:logout', async () => {
+  await clearAuthSession();
+  memoryStore.setUserId('dev-logged-out');
+  console.log('[Auth] Session cleared');
+});
+
 // --- Cost tracking IPC ---
 
 ipcMain.handle('cost:getUsage', () => costTracker.getUsage());
@@ -259,11 +382,11 @@ ipcMain.handle('settings:set', (_, { key, value }) => settingsStore.set(key, val
 
 // --- Env (local credentials) IPC ---
 
-ipcMain.handle('env:getAll', () => envStore.getAll());
-ipcMain.handle('env:get', (_, key) => envStore.get(key));
-ipcMain.handle('env:set', (_, { key, value }) => envStore.set(key, value));
-ipcMain.handle('env:setMany', (_, pairs) => envStore.setMany(pairs));
-ipcMain.handle('env:has', (_, key) => envStore.has(key));
+ipcMain.handle('env:getAll', async () => { await envStore.whenReady(); return envStore.getAll(); });
+ipcMain.handle('env:get', async (_, key) => { await envStore.whenReady(); return envStore.get(key); });
+ipcMain.handle('env:set', async (_, { key, value }) => { await envStore.whenReady(); envStore.set(key, value); });
+ipcMain.handle('env:setMany', async (_, pairs) => { await envStore.whenReady(); envStore.setMany(pairs); });
+ipcMain.handle('env:has', async (_, key) => { await envStore.whenReady(); return envStore.has(key); });
 
 // --- History IPC ---
 
@@ -295,10 +418,105 @@ ipcMain.handle('plugins:openFolder', () => {
 
 ipcMain.handle('memory:list', (_, tag) => memoryStore.list(tag));
 ipcMain.handle('memory:get', (_, id) => memoryStore.get(id));
-ipcMain.handle('memory:create', (_, entry) => memoryStore.create(entry));
-ipcMain.handle('memory:update', (_, { id, updates }) => memoryStore.update(id, updates));
+ipcMain.handle('memory:create', async (_, entry) => {
+  const created = await memoryStore.create(entry);
+  // Fire-and-forget enrichment: auto-categorize + embed. Both use the user's
+  // own API keys; failures are silent — the memory is still saved.
+  (async () => {
+    if (!created?.id || created?.error) return;
+    const anthropicKey = envStore.get('ANTHROPIC_API_KEY');
+    const openaiKey = envStore.get('OPENAI_API_KEY');
+    try {
+      if (anthropicKey) {
+        const mod = await import('./memoryCategorizer.js');
+        const result = await mod.runAutoCategorizeOne({ memory: created, apiKey: anthropicKey });
+        if (result?.ok && result.categoryId) {
+          memoryStore.update(created.id, { categoryId: result.categoryId });
+        }
+      }
+    } catch (err) {
+      console.warn('[Memory] auto-categorize failed:', err.message);
+    }
+    try {
+      if (openaiKey) {
+        const mod = await import('./memoryEmbeddings.js');
+        const vec = await mod.embedMemory(created, openaiKey);
+        if (vec) await mod.persistEmbedding(created.id, vec);
+      }
+    } catch (err) {
+      console.warn('[Memory] embedding failed:', err.message);
+    }
+  })();
+  return created;
+});
+ipcMain.handle('memory:update', async (_, { id, updates }) => {
+  const updated = memoryStore.update(id, updates);
+  // Re-embed when title/content/tags shift; skip for category-only updates.
+  const shapeChange = updates && (updates.title !== undefined || updates.content !== undefined || updates.tags !== undefined);
+  if (shapeChange && updated && !updated.error) {
+    const openaiKey = envStore.get('OPENAI_API_KEY');
+    if (openaiKey) {
+      (async () => {
+        try {
+          const mod = await import('./memoryEmbeddings.js');
+          const vec = await mod.embedMemory(updated, openaiKey);
+          if (vec) await mod.persistEmbedding(updated.id, vec);
+        } catch (err) {
+          console.warn('[Memory] re-embed failed:', err.message);
+        }
+      })();
+    }
+  }
+  return updated;
+});
 ipcMain.handle('memory:delete', (_, id) => memoryStore.delete(id));
 ipcMain.handle('memory:search', (_, query) => memoryStore.search(query));
+ipcMain.handle('memory:status', () => memoryStore.getStatus());
+ipcMain.handle('memory:syncNow', async () => {
+  await memoryStore.fetchTier(true); // force-refresh in case of upgrade/downgrade
+  await memoryStore._fullSync();
+  return memoryStore.getStatus();
+});
+ipcMain.handle('memory:realtimeOn', () => { memoryStore.touchRealtime(); });
+ipcMain.handle('memory:realtimeOff', () => { memoryStore.disableRealtime(); });
+ipcMain.handle('memory:listDeleted', () => memoryStore.listDeleted());
+ipcMain.handle('memory:restore', (_, id) => memoryStore.restore(id));
+
+// --- Memory Categories ---
+import('./memoryCategories.js').then((cats) => {
+  ipcMain.handle('memory:categories:list', () => cats.listCategories());
+  ipcMain.handle('memory:categories:create', (_, body) => cats.createCategory(body));
+  ipcMain.handle('memory:categories:update', (_, { id, patch }) => cats.updateCategory(id, patch));
+  ipcMain.handle('memory:categories:delete', (_, id) => cats.deleteCategory(id));
+  ipcMain.handle('memory:categories:assign', (_, { memoryId, categoryId }) =>
+    cats.assignCategory(memoryId, categoryId));
+  ipcMain.handle('memory:categories:persistTree', (_, tree) => cats.persistCategoryTree(tree));
+});
+
+import('./memoryCategorizer.js').then((mod) => {
+  ipcMain.handle('memory:categories:aiCategorize', async (event, opts) => {
+    const onProgress = (msg) => {
+      try { event.sender.send('memory:categories:progress', msg); } catch {}
+    };
+    // Pull the API key server-side; the renderer never sees it.
+    const apiKey = envStore.get('ANTHROPIC_API_KEY');
+    return mod.runAiCategorize({ apiKey, model: opts?.model || 'haiku', onProgress });
+  });
+});
+
+import('./memoryEmbeddings.js').then((mod) => {
+  ipcMain.handle('memory:embeddings:backfill', async (event) => {
+    const apiKey = envStore.get('OPENAI_API_KEY');
+    const onProgress = (msg) => {
+      try { event.sender.send('memory:embeddings:progress', msg); } catch {}
+    };
+    return mod.backfillEmbeddings({ apiKey, onProgress });
+  });
+  ipcMain.handle('memory:embeddings:search', async (_, { query, limit, threshold }) => {
+    const apiKey = envStore.get('OPENAI_API_KEY');
+    return mod.semanticSearch({ query, apiKey, limit, threshold });
+  });
+});
 
 // --- Tasks (file-backed for MCP access) ---
 

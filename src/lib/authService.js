@@ -42,6 +42,17 @@ function mockClear() {
 }
 
 // ---------------------------------------------------------------------------
+// Bridge session to Electron main process for cloud sync
+// ---------------------------------------------------------------------------
+
+async function bridgeSessionToMain(session) {
+  if (!session || !window.flowade?.auth?.setSession) return;
+  try {
+    await window.flowade.auth.setSession(session.access_token, session.refresh_token);
+  } catch {}
+}
+
+// ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
 
@@ -64,6 +75,8 @@ export async function login(email, password, rememberMe = true) {
 
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) throw new Error(error.message);
+
+  await bridgeSessionToMain(data.session);
 
   const user = {
     id: data.user.id,
@@ -99,6 +112,8 @@ export async function signup(email, password, name) {
   });
   if (error) throw new Error(error.message);
 
+  if (data.session) await bridgeSessionToMain(data.session);
+
   const user = {
     id: data.user.id,
     email: data.user.email,
@@ -106,8 +121,9 @@ export async function signup(email, password, name) {
     createdAt: data.user.created_at,
   };
   const token = data.session?.access_token || null;
+  const confirmationPending = !data.session;
 
-  return { user, token };
+  return { user, token, confirmationPending };
 }
 
 /**
@@ -121,6 +137,7 @@ export async function logout() {
 
   const { error } = await supabase.auth.signOut();
   if (error) throw new Error(error.message);
+  try { await window.flowade?.auth?.logout(); } catch {}
 }
 
 /**
@@ -133,6 +150,7 @@ export async function isAuthenticated() {
   }
 
   const { data } = await supabase.auth.getSession();
+  if (data.session) bridgeSessionToMain(data.session);
   return !!data.session;
 }
 
@@ -202,6 +220,7 @@ export function onAuthStateChange(callback) {
   }
 
   const { data } = supabase.auth.onAuthStateChange((event, session) => {
+    if (event === 'TOKEN_REFRESHED' && session) bridgeSessionToMain(session);
     callback(event, session);
   });
 

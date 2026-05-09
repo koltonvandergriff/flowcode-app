@@ -1,8 +1,10 @@
 /**
- * Mock Subscription Service for FlowADE
- * Stores plan state in localStorage under `flowade_subscription`.
- * Will be replaced with Supabase + Stripe integration later.
+ * FlowADE Subscription Service
+ * Reads subscription tier from Supabase profiles table.
+ * Falls back to localStorage cache when offline or Supabase unavailable.
  */
+
+import { supabase } from './supabase';
 
 const STORAGE_KEY = 'flowade_subscription';
 
@@ -98,6 +100,40 @@ function saveSubscription(sub) {
 
 function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Sync subscription tier from Supabase profiles table into localStorage cache.
+ */
+export async function syncSubscriptionFromCloud() {
+  if (!supabase) return null;
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return null;
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('subscription_tier, subscription_status, subscription_expires_at')
+      .eq('id', user.id)
+      .single();
+    if (error || !data) return null;
+    const sub = loadSubscription();
+    sub.planId = data.subscription_tier || 'starter';
+    sub.status = data.subscription_status || 'active';
+    if (data.subscription_expires_at) sub.currentPeriodEnd = data.subscription_expires_at;
+    saveSubscription(sub);
+    return sub;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Check if user has access to a specific feature tier.
+ */
+export function hasFeatureAccess(requiredTier) {
+  const tierOrder = { starter: 0, pro: 1, team: 2 };
+  const sub = loadSubscription();
+  return (tierOrder[sub.planId] || 0) >= (tierOrder[requiredTier] || 0);
 }
 
 /**

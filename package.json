@@ -11,7 +11,7 @@
     "dev:fresh": "concurrently -k \"vite\" \"wait-on http://localhost:5173 && electron . --fresh\"",
     "build": "vite build && electron-builder",
     "start": "electron .",
-    "postinstall": "node scripts/rebuild-pty.js"
+    "postinstall": "node scripts/rebuild-pty.js && electron-builder install-app-deps"
   },
   "dependencies": {
     "@huggingface/transformers": "^4.2.0",
@@ -20,7 +20,11 @@
     "codeburn": "^0.9.6",
     "electron-store": "^10.0.0",
     "electron-updater": "^6.3.9",
-    "node-pty": "^1.1.0"
+    "keytar": "^7.9.0",
+    "node-pty": "^1.1.0",
+    "react-markdown": "^9.1.0",
+    "remark-gfm": "^4.0.1",
+    "ws": "^8.20.0"
   },
   "devDependencies": {
     "@electron/rebuild": "^3.7.1",

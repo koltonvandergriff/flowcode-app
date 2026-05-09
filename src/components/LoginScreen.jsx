@@ -32,7 +32,13 @@ export default function LoginScreen({ onAuthenticated }) {
         return;
       }
       if (mode === 'signup') {
-        await signup(email, password, name);
+        const result = await signup(email, password, name);
+        if (result.confirmationPending) {
+          setSuccessMessage('Check your email to confirm your account, then sign in.');
+          setMode('login');
+          setLoading(false);
+          return;
+        }
       } else {
         await login(email, password, rememberMe);
       }
