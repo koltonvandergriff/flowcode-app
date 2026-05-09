@@ -200,11 +200,12 @@ const shell = {
     width: '100vw', height: '100vh',
     fontFamily: FONT_MONO, color: '#f1f5f9',
     background: 'transparent',
-    WebkitAppRegion: 'drag',
+    // No drag at root — children would inherit and break clicks. Drag region
+    // is scoped to the topbar background below.
+    WebkitAppRegion: 'no-drag',
   },
   main: {
     display: 'flex', flexDirection: 'column', minWidth: 0,
-    WebkitAppRegion: 'no-drag',
   },
   content: {
     flex: 1, display: 'flex', minHeight: 0,
@@ -227,12 +228,16 @@ const top = {
     background: 'rgba(8,8,18,0.4)',
     backdropFilter: 'blur(10px)',
     flexShrink: 0,
+    // Drag region lives only on the topbar — interactive children below
+    // override with no-drag so clicks still register.
+    WebkitAppRegion: 'drag',
   },
   crumbs: {
     fontFamily: FONT_MONO, fontSize: 11,
     color: '#94a3b8', display: 'flex', gap: 8, alignItems: 'center',
+    WebkitAppRegion: 'no-drag',
   },
-  right: { marginLeft: 'auto', display: 'flex', gap: 10, alignItems: 'center' },
+  right: { marginLeft: 'auto', display: 'flex', gap: 10, alignItems: 'center', WebkitAppRegion: 'no-drag' },
   pill: {
     fontSize: 10, padding: '4px 10px', borderRadius: 99,
     border: '1px solid rgba(255,255,255,0.13)', color: '#94a3b8',

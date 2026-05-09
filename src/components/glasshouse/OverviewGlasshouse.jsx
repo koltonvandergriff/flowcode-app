@@ -25,22 +25,6 @@ export default function OverviewGlasshouse({ userName = 'there', onJump }) {
           overflow: 'hidden', position: 'relative',
         }}
       >
-        {/* Top bar */}
-        <div style={s.topbar}>
-          <div style={s.crumbs}>
-            <span>Workspace</span>
-            <span style={{ color: '#4a5168' }}>›</span>
-            <span style={{ color: '#f1f5f9' }}>Overview</span>
-          </div>
-          <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginLeft: 'auto' }}>
-            <span style={{ ...s.pill, ...s.pillCy }}>
-              <span style={{ ...s.pillDot, background: '#4de6f0' }} /> Trial · 6 days left
-            </span>
-            <span style={s.pill}>
-              <span style={{ ...s.pillDot, background: '#4de6f0' }} /> Synced · 405
-            </span>
-          </div>
-        </div>
 
         {/* Scroll body */}
         <div style={s.body}>
