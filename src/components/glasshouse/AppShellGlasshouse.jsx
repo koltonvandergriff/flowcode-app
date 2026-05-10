@@ -12,9 +12,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import ErrorBoundary from '../ErrorBoundary';
-import TerminalGrid from '../TerminalGrid';
 import MemoryPanel from '../MemoryPanel';
-import TaskBoard from '../TaskBoard';
 import SettingsPanel from '../SettingsPanel';
 import SubscriptionPanel from '../SubscriptionPanel';
 import HelpGuide from '../HelpGuide';
@@ -32,6 +30,7 @@ import PricingGlasshouse from './PricingGlasshouse';
 import SettingsGlasshouse from './SettingsGlasshouse';
 import AIChatGlasshouse from './AIChatGlasshouse';
 import TerminalsGlasshouse from './TerminalsGlasshouse';
+import TasksGlasshouse from './TasksGlasshouse';
 
 const FONT_DISP = 'var(--gh-font-display, "Outfit", sans-serif)';
 const FONT_TECH = 'var(--gh-font-techno, "Chakra Petch", sans-serif)';
@@ -128,11 +127,7 @@ export default function AppShellGlasshouse({ onLogout }) {
               <TerminalsGlasshouse dangerFlags={dangerFlags} onToggleDanger={toggleDanger} />
             )}
             {page === 'chat' && <AIChatGlasshouse />}
-            {page === 'tasks' && (
-              <div style={shell.tasks}>
-                <TaskBoard open={true} onToggle={() => setPage('overview')} />
-              </div>
-            )}
+            {page === 'tasks' && <TasksGlasshouse onClose={() => setPage('overview')} />}
             {page === 'memory' && (
               <MemoryPanel open={true} embedded={true} onToggle={() => setPage('overview')} />
             )}
@@ -226,13 +221,6 @@ const shell = {
   content: {
     flex: 1, display: 'flex', minHeight: 0,
     overflow: 'hidden',
-  },
-  terminals: {
-    flex: 1, padding: '12px 18px 18px', display: 'flex', flexDirection: 'column',
-    minWidth: 0, minHeight: 0,
-  },
-  tasks: {
-    flex: 1, display: 'flex', minWidth: 0, minHeight: 0,
   },
 };
 
