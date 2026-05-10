@@ -82,6 +82,19 @@ export default function AppShellGlasshouse({ onLogout }) {
   });
   const userFirstName = authUser?.name?.split(' ')?.[0] || (authUser?.email?.split('@')?.[0]) || 'there';
 
+  // Danger flags — global and per-terminal. Mirrors the state managed by
+  // the classic AppInner so the shell-level pane menus actually toggle.
+  const [dangerFlags, setDangerFlags] = useState({ global: false, perTerminal: {} });
+  const toggleDanger = useCallback((terminalId) => {
+    setDangerFlags(prev => {
+      if (!terminalId) return { ...prev, global: !prev.global };
+      const next = { ...prev.perTerminal };
+      if (next[terminalId]) delete next[terminalId];
+      else next[terminalId] = true;
+      return { ...prev, perTerminal: next };
+    });
+  }, []);
+
   const handleNav = useCallback((id) => {
     // Settings and Pricing are inline pages now (not modal overlays).
     setPage(id);
@@ -111,7 +124,9 @@ export default function AppShellGlasshouse({ onLogout }) {
             {page === 'overview' && (
               <OverviewGlasshouse userName={userFirstName} onJump={(id) => setPage(id)} />
             )}
-            {page === 'terminals' && <TerminalsGlasshouse />}
+            {page === 'terminals' && (
+              <TerminalsGlasshouse dangerFlags={dangerFlags} onToggleDanger={toggleDanger} />
+            )}
             {page === 'chat' && <AIChatGlasshouse />}
             {page === 'tasks' && (
               <div style={shell.tasks}>
