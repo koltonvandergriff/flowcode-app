@@ -6,6 +6,7 @@ import { WorkspaceContext } from '../contexts/WorkspaceContext';
 import { SettingsContext } from '../contexts/SettingsContext';
 import TerminalPane from './TerminalPane';
 import ResizeHandle from './ResizeHandle';
+import TerminalWizardGlasshouse from './glasshouse/TerminalWizardGlasshouse';
 
 const fc = FONTS.mono;
 const fb = FONTS.body;
@@ -93,6 +94,44 @@ export default function TerminalGrid({ dangerFlags, onToggleDanger }) {
     }));
   }, [terminals, updateWorkspace, settings]);
 
+  // Spawn a pane in `pending` state — pane renders the wizard inline until
+  // the user commits. On commit the pending flag clears and the existing
+  // TerminalPane render path takes over.
+  const addCustomTerminal = useCallback(() => {
+    const id = `term-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`;
+    updateWorkspace((prev) => ({
+      ...prev,
+      terminals: [...(prev.terminals || []), { id, label: 'New terminal', pending: true }],
+    }));
+  }, [updateWorkspace]);
+
+  const commitWizardConfig = useCallback((id, config) => {
+    updateWorkspace((prev) => ({
+      ...prev,
+      terminals: (prev.terminals || []).map((t) => t.id === id ? {
+        id,
+        label: config.label || t.label,
+        provider: config.provider,
+        model: config.model,
+        cwd: config.cwd,
+        dangerous: config.dangerous,
+      } : t),
+    }));
+    if (config.saveAsDefault && window.flowade?.settings?.update) {
+      window.flowade.settings.update({
+        defaultProvider: config.provider,
+        defaultCwd: config.cwd,
+      }).catch(() => {});
+    }
+  }, [updateWorkspace]);
+
+  const cancelWizard = useCallback((id) => {
+    updateWorkspace((prev) => ({
+      ...prev,
+      terminals: (prev.terminals || []).filter((t) => t.id !== id),
+    }));
+  }, [updateWorkspace]);
+
   const removeTerminal = useCallback((id) => {
     window.flowade?.terminal.kill(id);
     updateWorkspace((prev) => ({
@@ -159,25 +198,46 @@ export default function TerminalGrid({ dangerFlags, onToggleDanger }) {
 
   const renderPane = (t, style) => (
     <div key={t.id} style={style} onClick={() => setFocusedId(t.id)}>
-      <TerminalPane
-        id={t.id}
-        label={t.label}
-        provider={t.provider}
-        cwd={t.cwd}
-        fontSize={settings?.fontSize}
-        isFocused={focusedId === t.id}
-        onClose={() => removeTerminal(t.id)}
-        onRename={(name) => renameTerminal(t.id, name)}
-        onCwdChange={(cwd) => updateTerminalCwd(t.id, cwd)}
-        isDangerous={dangerFlags?.global || !!dangerFlags?.perTerminal?.[t.id]}
-        onToggleDanger={() => onToggleDanger?.(t.id)}
-        isDragging={dragId === t.id}
-        isDropTarget={dropTarget === t.id && dragId !== t.id}
-        onDragStart={() => setDragId(t.id)}
-        onDragEnd={() => { setDragId(null); setDropTarget(null); }}
-        onDragOver={() => setDropTarget(t.id)}
-        onDrop={() => handleDrop(t.id)}
-      />
+      {t.pending ? (
+        <div style={{
+          flex: 1, display: 'flex', flexDirection: 'column',
+          minHeight: 0, minWidth: 0, overflow: 'hidden',
+          border: '1px solid rgba(77,230,240,0.25)',
+          borderRadius: 12,
+          background: 'rgba(8, 8, 18, 0.55)',
+          backdropFilter: 'blur(14px) saturate(1.1)',
+          boxShadow: '0 12px 36px rgba(0,0,0,0.4), 0 0 28px rgba(77,230,240,0.08)',
+        }}>
+          <TerminalWizardGlasshouse
+            initialDefaults={{
+              provider: settings?.defaultProvider,
+              cwd: settings?.defaultCwd,
+            }}
+            onCommit={(cfg) => commitWizardConfig(t.id, cfg)}
+            onCancel={() => cancelWizard(t.id)}
+          />
+        </div>
+      ) : (
+        <TerminalPane
+          id={t.id}
+          label={t.label}
+          provider={t.provider}
+          cwd={t.cwd}
+          fontSize={settings?.fontSize}
+          isFocused={focusedId === t.id}
+          onClose={() => removeTerminal(t.id)}
+          onRename={(name) => renameTerminal(t.id, name)}
+          onCwdChange={(cwd) => updateTerminalCwd(t.id, cwd)}
+          isDangerous={dangerFlags?.global || !!dangerFlags?.perTerminal?.[t.id] || !!t.dangerous}
+          onToggleDanger={() => onToggleDanger?.(t.id)}
+          isDragging={dragId === t.id}
+          isDropTarget={dropTarget === t.id && dragId !== t.id}
+          onDragStart={() => setDragId(t.id)}
+          onDragEnd={() => { setDragId(null); setDropTarget(null); }}
+          onDragOver={() => setDropTarget(t.id)}
+          onDrop={() => handleDrop(t.id)}
+        />
+      )}
     </div>
   );
 
@@ -297,7 +357,24 @@ export default function TerminalGrid({ dangerFlags, onToggleDanger }) {
               }}>{l.label}</button>
             ))}
           </div>
-          <button onClick={addTerminal} style={{
+          <button onClick={addCustomTerminal} title="Open the wizard — pick provider, model, cwd, label" style={{
+            all: 'unset', cursor: 'pointer', fontSize: 10, fontWeight: 700,
+            padding: '5px 12px', borderRadius: 99, fontFamily: fc,
+            letterSpacing: '0.04em',
+            color: glass ? '#94a3b8' : colors.text.dim,
+            border: glass ? '1px solid rgba(255,255,255,0.13)' : `1px solid ${colors.border.subtle}`,
+            marginLeft: 6, transition: 'all .15s',
+          }}
+          onMouseEnter={(e) => {
+            if (glass) { e.currentTarget.style.borderColor = 'rgba(77,230,240,0.35)'; e.currentTarget.style.color = '#4de6f0'; }
+            else { e.currentTarget.style.color = colors.text.primary; }
+          }}
+          onMouseLeave={(e) => {
+            if (glass) { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.13)'; e.currentTarget.style.color = '#94a3b8'; }
+            else { e.currentTarget.style.color = colors.text.dim; }
+          }}
+          >+ Custom…</button>
+          <button onClick={addTerminal} title="Open with default provider + cwd from Settings" style={{
             all: 'unset', cursor: 'pointer', fontSize: 10, fontWeight: 700,
             padding: '5px 14px', borderRadius: 99, fontFamily: fc,
             letterSpacing: '0.04em',
