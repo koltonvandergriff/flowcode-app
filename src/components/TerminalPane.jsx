@@ -429,7 +429,6 @@ export default function TerminalPane({
   // doesn't flicker the badge.
   const [activity, setActivity] = useState('idle');
   const lastDataAtRef = useRef(0);
-  const completeTimerRef = useRef(null);
   const ctxAlertedRef = useRef(0);
   const unsubDataRef = useRef(null);
   const unsubExitRef = useRef(null);
@@ -489,24 +488,17 @@ export default function TerminalPane({
   }, [provider, isApiProvider, settings?.leanDefault, settings?.cavemanDefault, settings?.leanLevel]);
 
   // Idle / busy / complete state machine. Polled at 300ms; cheap.
-  // Busy is set by markBusy() (Enter pressed). Once pty output goes quiet
-  // for 1.2s we declare the prompt done and flash 'complete' for 3s.
+  // Busy is set by markBusy() (Enter pressed) or by meaningful pty
+  // output. Once output goes quiet for 1.2s we declare the prompt done
+  // and stay on 'complete' indefinitely — the badge persists until the
+  // user kicks off the next prompt, so the visual "this finished" flag
+  // is still there when they come back to a 16-pane layout an hour later.
   useEffect(() => {
     const tick = setInterval(() => {
       const since = Date.now() - (lastDataAtRef.current || 0);
-      setActivity(prev => {
-        if (prev === 'busy' && since > 1200) {
-          if (completeTimerRef.current) clearTimeout(completeTimerRef.current);
-          completeTimerRef.current = setTimeout(() => setActivity('idle'), 3000);
-          return 'complete';
-        }
-        return prev;
-      });
+      setActivity(prev => (prev === 'busy' && since > 1200) ? 'complete' : prev);
     }, 300);
-    return () => {
-      clearInterval(tick);
-      if (completeTimerRef.current) clearTimeout(completeTimerRef.current);
-    };
+    return () => clearInterval(tick);
   }, []);
 
   // Mark the pane as actively working on a user prompt. Resets the
@@ -514,10 +506,6 @@ export default function TerminalPane({
   // 'complete' just because the prompt hasn't started producing output yet.
   const markBusy = useCallback(() => {
     lastDataAtRef.current = Date.now();
-    if (completeTimerRef.current) {
-      clearTimeout(completeTimerRef.current);
-      completeTimerRef.current = null;
-    }
     setActivity('busy');
   }, []);
 
@@ -769,10 +757,6 @@ export default function TerminalPane({
           const meaningful = /\n/.test(stripForActivity)
             || stripForActivity.replace(/\s/g, '').length >= 5;
           if (meaningful) {
-            if (completeTimerRef.current) {
-              clearTimeout(completeTimerRef.current);
-              completeTimerRef.current = null;
-            }
             setActivity(a => (a === 'busy' ? a : 'busy'));
           }
 
@@ -1072,12 +1056,11 @@ export default function TerminalPane({
           </span>
         )}
         {activity === 'complete' && (
-          <span title="Just finished — auto-clears in 3s"
+          <span title="Last prompt finished — clears when you submit the next one"
             style={{
               fontSize: 8, fontWeight: 700, padding: '2px 6px 2px 5px', borderRadius: 99, fontFamily: fc,
               background: 'rgba(88,224,168,0.14)', color: '#58e0a8',
               letterSpacing: 0.5, display: 'inline-flex', alignItems: 'center', gap: 4,
-              animation: 'pulse 1.6s ease-out 1',
             }}>
             <span style={{ fontSize: 9 }}>✓</span> DONE
           </span>
