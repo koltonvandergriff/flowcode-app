@@ -927,11 +927,31 @@ export default function TerminalPane({
   // softer drop shadow. Internal terminal layer is untouched.
   const _glass = isGlasshouseEnabled();
   const _glassAccent = '#4de6f0';
+  // Border priority: danger > activity (busy yellow / done green) > focus
+  // (cyan) > resting subtle. Activity overrides focus so a 16-pane swarm
+  // stays scannable — the focused pane keeps a cyan glow via box-shadow
+  // below, so users still know where their cursor is even when its
+  // border has flipped to busy/done.
   const _glassBorder = isDangerous
     ? 'rgba(255, 107, 107, 0.5)'
-    : isFocused
-      ? 'rgba(77, 230, 240, 0.45)'
-      : 'rgba(255, 255, 255, 0.07)';
+    : activity === 'busy'
+      ? 'rgba(245, 200, 70, 0.65)'
+      : activity === 'complete'
+        ? 'rgba(88, 224, 168, 0.65)'
+        : isFocused
+          ? 'rgba(77, 230, 240, 0.45)'
+          : 'rgba(255, 255, 255, 0.07)';
+  // Outer shadow tint follows the same priority so the panel glow reads
+  // the activity at a glance from across the screen.
+  const _glassShadow = isDangerous
+    ? `0 0 20px rgba(255, 107, 107, 0.12), 0 2px 8px rgba(0,0,0,.4)`
+    : activity === 'busy'
+      ? `0 0 0 1px rgba(245,200,70,0.32), 0 10px 32px rgba(0,0,0,0.5), 0 0 32px rgba(245,200,70,0.12)`
+      : activity === 'complete'
+        ? `0 0 0 1px rgba(88,224,168,0.32), 0 10px 32px rgba(0,0,0,0.5), 0 0 32px rgba(88,224,168,0.12)`
+        : isFocused
+          ? `0 0 0 1px rgba(77,230,240,0.25), 0 12px 36px rgba(0,0,0,0.5), 0 0 36px rgba(77,230,240,0.08)`
+          : `inset 0 1px 0 rgba(255,255,255,0.04), 0 8px 24px rgba(0,0,0,0.4)`;
 
   return (
     <div
@@ -947,12 +967,10 @@ export default function TerminalPane({
         overflow: 'hidden', minHeight: 0, flex: 1,
         opacity: isDragging ? 0.4 : 1,
         backdropFilter: _glass ? 'blur(14px) saturate(1.1)' : undefined,
-        boxShadow: isDangerous
-          ? `0 0 20px rgba(255, 107, 107, 0.12), 0 2px 8px rgba(0,0,0,.4)`
-          : _glass
-            ? (isFocused
-                ? `0 0 0 1px rgba(77,230,240,0.25), 0 12px 36px rgba(0,0,0,0.5), 0 0 36px rgba(77,230,240,0.08)`
-                : `inset 0 1px 0 rgba(255,255,255,0.04), 0 8px 24px rgba(0,0,0,0.4)`)
+        boxShadow: _glass
+          ? _glassShadow
+          : isDangerous
+            ? `0 0 20px rgba(255, 107, 107, 0.12), 0 2px 8px rgba(0,0,0,.4)`
             : isFocused
               ? `0 0 0 1px ${accentColor}15, 0 4px 20px rgba(0,0,0,.3), 0 0 40px ${accentColor}06`
               : '0 1px 4px rgba(0,0,0,.2)',
