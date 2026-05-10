@@ -1102,12 +1102,9 @@ export default function TerminalPane({
                       marginLeft: 12,
                     }}>
                       {[
-                        { id: 'lite',          label: 'Lite',          hint: '15-25% off' },
-                        { id: 'full',          label: 'Full',          hint: '30-50% off · default' },
-                        { id: 'ultra',         label: 'Ultra',         hint: '50-65% off' },
-                        { id: 'wenyan-lite',   label: '文言 Lite',     hint: '60-75% off' },
-                        { id: 'wenyan-full',   label: '文言 Full',     hint: '75-85% off' },
-                        { id: 'wenyan-ultra',  label: '文言 Ultra',    hint: '80-90% off' },
+                        { id: 'lite',  label: 'Lite',  hint: '15-25% off' },
+                        { id: 'full',  label: 'Full',  hint: '30-50% off · default' },
+                        { id: 'ultra', label: 'Ultra', hint: '50-65% off' },
                       ].map(lvl => {
                         const active = leanLevel === lvl.id && leanActive;
                         return (
