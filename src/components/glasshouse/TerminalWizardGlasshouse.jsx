@@ -25,9 +25,6 @@ const MODELS_BY_PROVIDER = {
     { id: 'gpt-4o',      label: 'GPT-4o' },
     { id: 'gpt-4o-mini', label: 'GPT-4o mini' },
   ],
-  openclaw: [
-    { id: 'auto', label: 'Auto-route' },
-  ],
 };
 
 export default function TerminalWizardGlasshouse({

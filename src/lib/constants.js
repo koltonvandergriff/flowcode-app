@@ -17,7 +17,6 @@ export const PROVIDERS = [
   { id: 'shell', name: 'Shell', command: null, color: '#ffb340' },
   { id: 'aider', name: 'Aider', command: 'aider', color: '#7c6aff' },
   { id: 'chatgpt', name: 'ChatGPT', command: null, color: '#10a37f', apiProvider: true },
-  { id: 'openclaw', name: 'OpenClaw', command: null, color: '#ff6b35', apiProvider: true },
   { id: 'custom', name: 'Custom', command: null, color: '#40d8f0' },
 ];
 

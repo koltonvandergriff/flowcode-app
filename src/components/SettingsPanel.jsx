@@ -16,7 +16,6 @@ const SHELLS = [
 const API_PROVIDERS = [
   { key: 'OPENAI_API_KEY', label: 'OpenAI', desc: 'Powers Whisper voice transcription & ChatGPT sessions', placeholder: 'sk-...' },
   { key: 'ANTHROPIC_API_KEY', label: 'Anthropic', desc: 'Claude API access for direct API sessions', placeholder: 'sk-ant-...' },
-  { key: 'OPENCLAW_API_KEY', label: 'OpenClaw', desc: 'OpenClaw AI provider access', placeholder: 'oc-...' },
 ];
 
 const GITHUB_FIELDS = [

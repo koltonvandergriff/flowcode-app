@@ -22,7 +22,7 @@ function buildSections(colors) {
       title: 'Terminals',
       color: colors.accent.cyan,
       items: [
-        { q: 'Terminal providers', a: 'Claude CLI: runs the Claude Code CLI. Shell: raw terminal access. ChatGPT/OpenClaw: API-based chat. Aider: runs the Aider CLI.' },
+        { q: 'Terminal providers', a: 'Claude CLI: runs the Claude Code CLI. Claude API: direct Anthropic API chat. ChatGPT: OpenAI API chat. Shell: raw terminal access. Aider: runs the Aider CLI.' },
         { q: 'Renaming terminals', a: 'Double-click the terminal name in the header to rename it.' },
         { q: 'Drag to reorder', a: 'Drag terminal headers to swap their positions in the grid.' },
         { q: 'Resizing panes', a: 'Drag the dividers between terminal panes to resize them.' },

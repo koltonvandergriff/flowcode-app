@@ -35,7 +35,7 @@ const PLANS = [
     features: [
       'Unlimited terminals',
       '10 workspaces',
-      'All AI providers (Claude API, ChatGPT, OpenClaw)',
+      'All AI providers (Claude API, ChatGPT)',
       'Voice input',
       'Custom prompt templates',
       'Full analytics (30-day)',

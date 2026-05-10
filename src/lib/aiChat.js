@@ -123,44 +123,6 @@ async function* streamChatGPT(messages, apiKeyGetter) {
 }
 
 // ---------------------------------------------------------------------------
-// OpenClaw (placeholder — swap in real endpoint later)
-// ---------------------------------------------------------------------------
-
-async function* streamOpenClaw(messages, apiKeyGetter) {
-  const apiKey = await apiKeyGetter('OPENCLAW_API_KEY');
-
-  if (!apiKey) {
-    yield {
-      type: 'text',
-      content: 'OpenClaw integration coming soon — configure your API key in Settings.',
-    };
-    yield { type: 'done' };
-    return;
-  }
-
-  // -----------------------------------------------------------------------
-  // TODO: Replace this placeholder with the real OpenClaw Chat Completions
-  // call once their API is available. The interface mirrors OpenAI's format:
-  //
-  //   const response = await fetch('https://api.openclaw.ai/v1/chat/completions', {
-  //     method: 'POST',
-  //     headers: {
-  //       'Content-Type': 'application/json',
-  //       Authorization: `Bearer ${apiKey}`,
-  //     },
-  //     body: JSON.stringify({ model: 'openclaw-1', messages, stream: true }),
-  //   });
-  //   ... then parse SSE the same way as streamChatGPT ...
-  // -----------------------------------------------------------------------
-
-  yield {
-    type: 'text',
-    content: 'OpenClaw integration coming soon — configure your API key in Settings.',
-  };
-  yield { type: 'done' };
-}
-
-// ---------------------------------------------------------------------------
 // Anthropic (Claude API — direct streaming)
 // ---------------------------------------------------------------------------
 
@@ -276,14 +238,13 @@ async function* streamAnthropic(messages, apiKeyGetter) {
 
 const PROVIDER_STREAMS = {
   chatgpt: streamChatGPT,
-  openclaw: streamOpenClaw,
   'claude-api': streamAnthropic,
 };
 
 /**
  * Stream a chat completion from the given provider.
  *
- * @param {string} provider        Provider id (e.g. 'chatgpt', 'openclaw')
+ * @param {string} provider        Provider id (e.g. 'chatgpt', 'claude-api')
  * @param {Array}  messages        Array of { role, content } messages
  * @param {Function} apiKeyGetter  async (keyName) => string | null
  * @yields {{ type: 'text'|'error'|'done', content?: string }}

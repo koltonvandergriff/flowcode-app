@@ -12,7 +12,6 @@ const KEYCHAIN_SERVICE = 'flowade';
 const SECRET_KEYS = new Set([
   'OPENAI_API_KEY',
   'ANTHROPIC_API_KEY',
-  'OPENCLAW_API_KEY',
   'GITHUB_PAT',
 ]);
 
