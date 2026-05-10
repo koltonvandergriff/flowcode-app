@@ -127,10 +127,18 @@ export class EnvStore {
     return merged;
   }
 
-  /** Sync getter. Secret keys read from the in-memory keychain mirror. */
+  /**
+   * Sync getter. Secret keys read from the in-memory keychain mirror first,
+   * then fall back to process.env so dev-time `npm run dev` w/ exported
+   * shell vars Just Works (no need to wire up the keychain on every machine).
+   * In packaged production builds process.env won't have these keys, so the
+   * keychain remains the single source of truth.
+   */
   get(key) {
-    if (isSecretKey(key)) return this.secretCache.get(key) || '';
-    return this.cache[key] || '';
+    if (isSecretKey(key)) {
+      return this.secretCache.get(key) || process.env[key] || '';
+    }
+    return this.cache[key] || process.env[key] || '';
   }
 
   set(key, value) {
@@ -159,7 +167,7 @@ export class EnvStore {
   }
 
   has(key) {
-    if (isSecretKey(key)) return !!this.secretCache.get(key);
-    return !!this.cache[key];
+    if (isSecretKey(key)) return !!(this.secretCache.get(key) || process.env[key]);
+    return !!(this.cache[key] || process.env[key]);
   }
 }
