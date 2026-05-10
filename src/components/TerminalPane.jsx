@@ -413,6 +413,13 @@ export default function TerminalPane({
   const [leanLevel, setLeanLevel] = useState('full');
   const [leanLevelsOpen, setLeanLevelsOpen] = useState(false);
   const leanInitRef = useRef(false);
+  // Pane activity state — 'idle' | 'busy' | 'complete'. Computed from the
+  // pty data stream: any byte = busy, 800ms of silence = idle. Busy → idle
+  // transition flashes 'complete' for 3s so users see recently-finished
+  // sessions at a glance.
+  const [activity, setActivity] = useState('idle');
+  const lastDataAtRef = useRef(0);
+  const completeTimerRef = useRef(null);
   const ctxAlertedRef = useRef(0);
   const unsubDataRef = useRef(null);
   const unsubExitRef = useRef(null);
@@ -470,6 +477,26 @@ export default function TerminalPane({
       setTimeout(() => addToast('Tip: Enable Lean mode to compress AI replies and trim tokens.', 'info'), 3000);
     }
   }, [provider, isApiProvider, settings?.leanDefault, settings?.cavemanDefault, settings?.leanLevel]);
+
+  // Idle / busy / complete state machine. Polled at 300ms; cheap.
+  useEffect(() => {
+    const tick = setInterval(() => {
+      const since = Date.now() - (lastDataAtRef.current || 0);
+      setActivity(prev => {
+        if (prev === 'busy' && since > 800) {
+          // transition busy → complete (auto-fade to idle after 3s)
+          if (completeTimerRef.current) clearTimeout(completeTimerRef.current);
+          completeTimerRef.current = setTimeout(() => setActivity('idle'), 3000);
+          return 'complete';
+        }
+        return prev;
+      });
+    }, 300);
+    return () => {
+      clearInterval(tick);
+      if (completeTimerRef.current) clearTimeout(completeTimerRef.current);
+    };
+  }, []);
 
   const sendToTerminal = useCallback((text) => {
     window.flowade?.terminal.write(id, text);
@@ -698,6 +725,14 @@ export default function TerminalPane({
           term.write(data);
           outputBufRef.current += data;
           if (outputBufRef.current.length > 3000) outputBufRef.current = outputBufRef.current.slice(-2000);
+          // Activity tracking: any byte = busy. Idle/complete transitions
+          // happen in the polling effect below.
+          lastDataAtRef.current = Date.now();
+          setActivity(a => (a === 'busy' ? a : 'busy'));
+          if (completeTimerRef.current) {
+            clearTimeout(completeTimerRef.current);
+            completeTimerRef.current = null;
+          }
 
           if (promptTimerRef.current) clearTimeout(promptTimerRef.current);
           promptTimerRef.current = setTimeout(() => {
@@ -973,6 +1008,47 @@ export default function TerminalPane({
 
         <div style={{ flex: 1 }} />
 
+        {/* Activity flag — busy / complete only render; idle is silent so
+            calm panes don't fight for attention. */}
+        {activity === 'busy' && (
+          <span title="Working — receiving output now"
+            style={{
+              fontSize: 8, fontWeight: 700, padding: '2px 6px 2px 5px', borderRadius: 99, fontFamily: fc,
+              background: 'rgba(77,230,240,0.12)', color: '#4de6f0',
+              letterSpacing: 0.5, display: 'inline-flex', alignItems: 'center', gap: 4,
+            }}>
+            <span style={{
+              width: 6, height: 6, borderRadius: '50%', background: '#4de6f0',
+              boxShadow: '0 0 8px #4de6f0', animation: 'pulse 1.1s infinite',
+            }} />
+            BUSY
+          </span>
+        )}
+        {activity === 'complete' && (
+          <span title="Just finished — auto-clears in 3s"
+            style={{
+              fontSize: 8, fontWeight: 700, padding: '2px 6px 2px 5px', borderRadius: 99, fontFamily: fc,
+              background: 'rgba(88,224,168,0.14)', color: '#58e0a8',
+              letterSpacing: 0.5, display: 'inline-flex', alignItems: 'center', gap: 4,
+              animation: 'pulse 1.6s ease-out 1',
+            }}>
+            <span style={{ fontSize: 9 }}>✓</span> DONE
+          </span>
+        )}
+
+        {/* Lean mode flag — shows the active intensity. */}
+        {leanActive && (
+          <span title={`Lean mode active: ${leanLevel}`}
+            style={{
+              fontSize: 8, fontWeight: 700, padding: '2px 6px', borderRadius: 99, fontFamily: fc,
+              background: 'rgba(77,230,240,0.10)', color: '#4de6f0',
+              letterSpacing: 0.5, display: 'inline-flex', alignItems: 'center', gap: 3,
+              border: '1px solid rgba(77,230,240,0.25)',
+            }}>
+            ⚡ LEAN <span style={{ opacity: 0.7, textTransform: 'lowercase' }}>{leanLevel}</span>
+          </span>
+        )}
+
         {ctxPercent != null && (
           <span style={{
             fontSize: 9, fontWeight: 600, padding: '1px 5px', borderRadius: 3, fontFamily: fc,
@@ -981,11 +1057,13 @@ export default function TerminalPane({
         )}
 
         {isDangerous && (
-          <span style={{
-            fontSize: 8, fontWeight: 700, padding: '1px 5px', borderRadius: 3,
-            background: colors.status.error + '18', color: colors.status.error, fontFamily: fc,
-            letterSpacing: 0.5,
-          }}>DANGER</span>
+          <span title="Danger mode — commands run without per-action confirmation"
+            style={{
+              fontSize: 8, fontWeight: 700, padding: '2px 6px', borderRadius: 99,
+              background: colors.status.error + '18', color: colors.status.error, fontFamily: fc,
+              letterSpacing: 0.5, display: 'inline-flex', alignItems: 'center', gap: 4,
+              border: `1px solid ${colors.status.error}30`,
+            }}>⚠ DANGER</span>
         )}
 
         {!isApiProvider && previewUrl && (
