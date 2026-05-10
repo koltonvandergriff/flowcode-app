@@ -23,7 +23,7 @@ import AnalyticsDashboard from '../AnalyticsDashboard';
 import NotificationsPanel from '../NotificationsPanel';
 import CommandPalette from '../CommandPalette';
 import UpdateNotification from '../UpdateNotification';
-import BrowserPanel from '../BrowserPanel';
+import BrowserGlasshouse from './BrowserGlasshouse';
 import ResizeHandle from '../ResizeHandle';
 import SideNavGlasshouse from './SideNavGlasshouse';
 import OverviewGlasshouse from './OverviewGlasshouse';
@@ -172,7 +172,7 @@ export default function AppShellGlasshouse({ onLogout }) {
             }} />
           )}
           <ErrorBoundary name="Browser Panel">
-            <BrowserPanel
+            <BrowserGlasshouse
               open={browserOpen}
               onToggle={() => setBrowserOpen(o => !o)}
               width={browserWidth}
