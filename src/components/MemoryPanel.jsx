@@ -291,9 +291,11 @@ export default function MemoryPanel({ open, onToggle, embedded = false }) {
 
   const cardStyle = embedded
     ? {
+        // Embedded: fill the page wrapper's frame. Drop the visible border
+        // and rounded corners since the wrapper provides chrome already.
         flex: 1, width: '100%', height: '100%',
-        background: 'rgba(8, 8, 18, 0.55)',
-        border: '1px solid rgba(255,255,255,0.08)',
+        background: 'transparent',
+        border: 'none',
       }
     : {
         width: '72vw', height: '78vh', maxWidth: 1400, maxHeight: 1000,
@@ -314,10 +316,12 @@ export default function MemoryPanel({ open, onToggle, embedded = false }) {
     >
       <div style={{
         ...cardStyle,
-        borderRadius: 16,
-        backdropFilter: 'blur(14px) saturate(1.1)',
-        WebkitBackdropFilter: 'blur(14px) saturate(1.1)',
-        boxShadow: '0 30px 80px rgba(0,0,0,0.55), 0 0 0 1px rgba(74,240,192,0.04)',
+        ...(embedded ? null : {
+          borderRadius: 16,
+          backdropFilter: 'blur(14px) saturate(1.1)',
+          WebkitBackdropFilter: 'blur(14px) saturate(1.1)',
+          boxShadow: '0 30px 80px rgba(0,0,0,0.55), 0 0 0 1px rgba(74,240,192,0.04)',
+        }),
         overflow: 'hidden',
         display: 'flex', flexDirection: 'column',
         position: 'relative',
@@ -325,12 +329,20 @@ export default function MemoryPanel({ open, onToggle, embedded = false }) {
       {/* Top bar */}
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '14px 24px', flexShrink: 0,
+        padding: embedded ? '10px 16px' : '14px 24px', flexShrink: 0,
         borderBottom: '1px solid rgba(255,255,255,0.06)',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ fontSize: 18, filter: 'drop-shadow(0 0 6px rgba(74,240,192,0.4))' }}>🧠</span>
-          <span style={{ fontSize: 16, fontWeight: 700, color: '#e2e8f0', fontFamily: fb, letterSpacing: 0.5 }}>Memory</span>
+          {/* Embedded mode: the page-level header already shows the title.
+              Hide the local title to keep the inner panel clean per the
+              mockup's 3-column layout. Keep the count + sync pills since
+              they're functional status indicators. */}
+          {!embedded && (
+            <>
+              <span style={{ fontSize: 18, filter: 'drop-shadow(0 0 6px rgba(74,240,192,0.4))' }}>🧠</span>
+              <span style={{ fontSize: 16, fontWeight: 700, color: '#e2e8f0', fontFamily: fb, letterSpacing: 0.5 }}>Memory</span>
+            </>
+          )}
           <CountPill count={status.count ?? entries.length} limit={status.limit} tier={status.tier} />
           <SyncBadge
             status={status}
@@ -511,16 +523,19 @@ export default function MemoryPanel({ open, onToggle, embedded = false }) {
             onMouseUp={(e) => e.target.style.transform = 'scale(1)'}
           >+ New</button>
 
-          {/* Close */}
-          <button onClick={onToggle} style={{
-            all: 'unset', cursor: 'pointer', width: 28, height: 28, borderRadius: 6,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: '#555', fontSize: 14, transition: 'all 0.15s',
-            background: 'rgba(255,255,255,0.03)',
-          }}
-            onMouseEnter={(e) => { e.target.style.color = '#e2e8f0'; e.target.style.background = 'rgba(255,255,255,0.08)'; }}
-            onMouseLeave={(e) => { e.target.style.color = '#555'; e.target.style.background = 'rgba(255,255,255,0.03)'; }}
-          >✕</button>
+          {/* Close — hidden in embedded mode since the panel is the
+              main view, not a modal. */}
+          {!embedded && (
+            <button onClick={onToggle} style={{
+              all: 'unset', cursor: 'pointer', width: 28, height: 28, borderRadius: 6,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: '#555', fontSize: 14, transition: 'all 0.15s',
+              background: 'rgba(255,255,255,0.03)',
+            }}
+              onMouseEnter={(e) => { e.target.style.color = '#e2e8f0'; e.target.style.background = 'rgba(255,255,255,0.08)'; }}
+              onMouseLeave={(e) => { e.target.style.color = '#555'; e.target.style.background = 'rgba(255,255,255,0.03)'; }}
+            >✕</button>
+          )}
         </div>
       </div>
 
