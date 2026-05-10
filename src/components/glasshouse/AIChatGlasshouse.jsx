@@ -118,6 +118,9 @@ export default function AIChatGlasshouse() {
         <p style={s.sub}>{model} · keys live in your OS keychain · context can pull from memory.</p>
       </div>
 
+      <RoadmapBanner />
+
+
       <div style={s.shell}>
         <aside style={s.list}>
           <button onClick={newConversation} style={s.newBtn}>+ New conversation</button>
@@ -176,6 +179,92 @@ export default function AIChatGlasshouse() {
     </div>
   );
 }
+
+function RoadmapBanner() {
+  const [dismissed, setDismissed] = useState(() => {
+    try { return localStorage.getItem('flowade.aichat.banner.dismissed') === '1'; } catch { return false; }
+  });
+  if (dismissed) return null;
+
+  const dismiss = () => {
+    try { localStorage.setItem('flowade.aichat.banner.dismissed', '1'); } catch {}
+    setDismissed(true);
+  };
+
+  return (
+    <div style={banner.root}>
+      <div style={banner.iconWrap}>
+        <span style={banner.icon}>◈</span>
+      </div>
+      <div style={banner.body}>
+        <div style={banner.head}>
+          <span style={banner.tag}>preview</span>
+          <span style={banner.title}>AI Chat is the lighter cousin of Terminal</span>
+        </div>
+        <p style={banner.copy}>
+          Today this surface streams replies through your saved Anthropic / OpenAI key — no shell, no
+          file edits, no tool use. For real coding work,{' '}
+          <strong style={banner.strong}>open a Terminal</strong>{' '}
+          (Claude Code w/ tools is a faster path than chatting alone).
+        </p>
+        <p style={{ ...banner.copy, ...banner.copyDim }}>
+          Coming: <strong style={banner.strong}>mobile-first</strong> companion (this is where AI Chat lives long-term),
+          <strong style={banner.strong}> memory auto-pull</strong> (top-K vector matches injected each turn), and
+          <strong style={banner.strong}> multi-model fan-out</strong> (Sonnet vs Haiku vs GPT side-by-side).
+        </p>
+      </div>
+      <button onClick={dismiss} style={banner.dismiss} title="Dismiss until reset">✕</button>
+    </div>
+  );
+}
+
+const banner = {
+  root: {
+    display: 'grid', gridTemplateColumns: '40px 1fr auto', gap: 14, alignItems: 'start',
+    padding: '14px 16px',
+    margin: '0 0 16px',
+    border: '1px solid rgba(77,230,240,0.25)',
+    background:
+      'linear-gradient(135deg, rgba(77,230,240,0.08), rgba(77,230,240,0.02))',
+    borderRadius: 12,
+    backdropFilter: 'blur(10px)',
+    boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.04), 0 0 24px rgba(77,230,240,0.05)',
+  },
+  iconWrap: {
+    width: 32, height: 32, borderRadius: 8,
+    background: 'rgba(77,230,240,0.12)', border: '1px solid rgba(77,230,240,0.3)',
+    display: 'grid', placeItems: 'center', flexShrink: 0,
+  },
+  icon: {
+    color: '#4de6f0', fontSize: 14,
+    fontFamily: 'var(--gh-font-display, "Outfit", sans-serif)', fontWeight: 700,
+  },
+  body: { minWidth: 0 },
+  head: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6, flexWrap: 'wrap' },
+  tag: {
+    fontFamily: 'var(--gh-font-techno, "Chakra Petch", sans-serif)',
+    fontWeight: 600, fontSize: 9, letterSpacing: '0.32em', textTransform: 'uppercase',
+    color: '#4de6f0', padding: '3px 8px', borderRadius: 4,
+    border: '1px solid rgba(77,230,240,0.35)', background: 'rgba(77,230,240,0.05)',
+  },
+  title: {
+    fontFamily: 'var(--gh-font-display, "Outfit", sans-serif)', fontWeight: 700,
+    fontSize: 14, color: '#f1f5f9', letterSpacing: '-0.01em',
+  },
+  copy: {
+    fontSize: 11.5, color: '#94a3b8', lineHeight: 1.55,
+    margin: '0 0 4px',
+    fontFamily: 'var(--gh-font-mono, "JetBrains Mono", monospace)',
+  },
+  copyDim: { color: '#6b7a90', marginBottom: 0 },
+  strong: { color: '#4de6f0', fontWeight: 600 },
+  dismiss: {
+    all: 'unset', cursor: 'pointer',
+    width: 24, height: 24, borderRadius: 6,
+    display: 'grid', placeItems: 'center',
+    color: '#4a5168', fontSize: 12,
+  },
+};
 
 function Bubble({ role, content, streaming }) {
   const isUser = role === 'user';
