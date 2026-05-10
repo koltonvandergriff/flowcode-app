@@ -23,6 +23,7 @@ import AnalyticsDashboard from '../AnalyticsDashboard';
 import NotificationsPanel from '../NotificationsPanel';
 import CommandPalette from '../CommandPalette';
 import UpdateNotification from '../UpdateNotification';
+import NotificationCenter from './NotificationCenter';
 import SideNavGlasshouse from './SideNavGlasshouse';
 import OverviewGlasshouse from './OverviewGlasshouse';
 import PricingGlasshouse from './PricingGlasshouse';
@@ -136,6 +137,7 @@ export default function AppShellGlasshouse({ onLogout }) {
       </main>
 
       <UpdateNotification />
+      <NotificationCenter />
 
       {/* Overlays — same components used by the classic shell */}
       <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} onLogout={onLogout} />

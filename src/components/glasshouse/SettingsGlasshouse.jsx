@@ -295,6 +295,9 @@ function KeyChips({ combo }) {
 // ---------------------------------------------------------------------------
 function NotificationsSection() {
   const [enabled, setEnabled] = useState(true);
+  const [terminalDone, setTerminalDone] = useState(() => {
+    try { const v = localStorage.getItem('flowade.notify.terminalDone'); return v === null || v === '1'; } catch { return true; }
+  });
   const [tokens, setTokens] = useState([]);
   const [events, setEvents] = useState([]);
   const eventsRef = useRef([]);
@@ -336,6 +339,16 @@ function NotificationsSection() {
     <>
       <h2 style={s.cardH2}>Notifications & Devices</h2>
       <p style={s.cardSub}>Mobile push notifications, build / test / deploy events from your terminals.</p>
+
+      <Toggle
+        label="Prompt-done banners"
+        desc="Top-center toast when a terminal finishes the prompt you submitted. Useful when running many panes in parallel."
+        on={terminalDone}
+        onChange={(v) => {
+          setTerminalDone(v);
+          try { localStorage.setItem('flowade.notify.terminalDone', v ? '1' : '0'); } catch {}
+        }}
+      />
 
       <Toggle
         label="Enable push notifications"

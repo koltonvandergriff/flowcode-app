@@ -496,10 +496,21 @@ export default function TerminalPane({
   useEffect(() => {
     const tick = setInterval(() => {
       const since = Date.now() - (lastDataAtRef.current || 0);
-      setActivity(prev => (prev === 'busy' && since > 1200) ? 'complete' : prev);
+      setActivity(prev => {
+        if (prev === 'busy' && since > 1200) {
+          // Notify the rest of the app that this pane just finished a
+          // prompt. NotificationCenter listens for this to surface a
+          // top-center banner (configurable via Settings → Notifications).
+          window.dispatchEvent(new CustomEvent('flowade:terminalComplete', {
+            detail: { terminalId: id, label, provider, at: Date.now() },
+          }));
+          return 'complete';
+        }
+        return prev;
+      });
     }, 300);
     return () => clearInterval(tick);
-  }, []);
+  }, [id, label, provider]);
 
   // Mark the pane as actively working on a user prompt. Resets the
   // silence timer so the polling effect won't immediately demote us to
