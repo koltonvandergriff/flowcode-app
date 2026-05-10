@@ -418,11 +418,15 @@ export default function TerminalPane({
   const [leanLevel, setLeanLevel] = useState('full');
   const [leanLevelsOpen, setLeanLevelsOpen] = useState(false);
   const leanInitRef = useRef(false);
-  // Pane activity state — 'idle' | 'busy' | 'complete'. Tied to user
-  // prompt submissions, NOT raw pty bytes. Pressing Enter (in xterm or in
-  // the input box) flips busy. After ~1.2s of pty silence we transition
-  // busy → complete (which auto-fades to idle after 3s). Mere clicks /
-  // cursor blinks / focus echoes no longer flicker the badge.
+  // Pane activity state — 'idle' | 'busy' | 'complete'. Two triggers
+  // promote to 'busy': a user prompt submission (Enter in xterm or Send
+  // from the input box) and any pty burst carrying meaningful output
+  // (newlines or >= 5 visible chars after ANSI strip). Pure cursor /
+  // focus / single-char echoes are ignored. After 1.2s of pty silence we
+  // transition busy → complete, which auto-fades to idle after 3s.
+  // Result: a background pane streaming an agent response shows BUSY
+  // without the user having focused it, but a click on an idle pane
+  // doesn't flicker the badge.
   const [activity, setActivity] = useState('idle');
   const lastDataAtRef = useRef(0);
   const completeTimerRef = useRef(null);
@@ -746,10 +750,31 @@ export default function TerminalPane({
           outputBufRef.current += data;
           if (outputBufRef.current.length > 3000) outputBufRef.current = outputBufRef.current.slice(-2000);
           // Track when output last arrived so the busy → complete silence
-          // detector can fire once a submitted prompt finishes streaming.
-          // Don't flip activity to 'busy' here — that would trigger on
-          // every cursor redraw, focus echo, and prompt repaint.
+          // detector can fire once the prompt finishes streaming.
           lastDataAtRef.current = Date.now();
+          // Promote to 'busy' when the burst carries meaningful output —
+          // not when it's pure cursor / focus echo. Strip CSI + OSC ANSI
+          // sequences and check what's left: any newline, or >=5 visible
+          // chars, counts as real work. This catches background panes
+          // whose AI agent is streaming a response without flickering for
+          // every click-induced prompt repaint.
+          const stripForActivity = data
+            .replace(/\x1b\[[\d;?]*[a-zA-Z]/g, '')
+            .replace(/\x1b\][\s\S]*?(?:\x07|\x1b\\)/g, '')
+            .replace(/[\x00-\x08\x0b-\x1f\x7f]/g, '');
+          // Newline (\n) signals real new output, not a prompt redraw —
+          // \r alone is what bash uses to overwrite the current line, so
+          // we deliberately ignore it. The 5-char fallback handles agents
+          // that stream chunks without committing a line.
+          const meaningful = /\n/.test(stripForActivity)
+            || stripForActivity.replace(/\s/g, '').length >= 5;
+          if (meaningful) {
+            if (completeTimerRef.current) {
+              clearTimeout(completeTimerRef.current);
+              completeTimerRef.current = null;
+            }
+            setActivity(a => (a === 'busy' ? a : 'busy'));
+          }
 
           if (promptTimerRef.current) clearTimeout(promptTimerRef.current);
           promptTimerRef.current = setTimeout(() => {
