@@ -156,6 +156,24 @@ export default function TerminalGrid({ dangerFlags, onToggleDanger }) {
     return () => window.removeEventListener('keydown', onKey);
   }, [terminals, focusedId, updateWorkspace]);
 
+  // "Close all after this" — kills every pane that comes after the given
+   // id in the workspace order (left → right, top → bottom). Used by the
+   // hamburger menu inside each TerminalPane.
+  const closeAllAfter = useCallback((id) => {
+    updateWorkspace((prev) => {
+      const list = prev.terminals || [];
+      const idx = list.findIndex(t => t.id === id);
+      if (idx < 0) return prev;
+      const toClose = list.slice(idx + 1);
+      for (const t of toClose) window.flowade?.terminal?.kill?.(t.id);
+      return { ...prev, terminals: list.slice(0, idx + 1) };
+    });
+    // If the focused pane was past this id, refocus to this id.
+    const idx = (terminals || []).findIndex(t => t.id === id);
+    const focusedIdx = (terminals || []).findIndex(t => t.id === focusedId);
+    if (focusedIdx > idx) setFocusedId(id);
+  }, [updateWorkspace, terminals, focusedId]);
+
   const massCloseApply = useCallback((idsToClose) => {
     for (const id of idsToClose) {
       window.flowade?.terminal?.kill?.(id);
@@ -265,6 +283,8 @@ export default function TerminalGrid({ dangerFlags, onToggleDanger }) {
           fontSize={settings?.fontSize}
           isFocused={focusedId === t.id}
           onClose={() => removeTerminal(t.id)}
+          onCloseAllAfter={() => closeAllAfter(t.id)}
+          panesAfter={Math.max(0, terminals.length - 1 - terminals.findIndex(x => x.id === t.id))}
           onRename={(name) => renameTerminal(t.id, name)}
           onCwdChange={(cwd) => updateTerminalCwd(t.id, cwd)}
           isDangerous={dangerFlags?.global || !!dangerFlags?.perTerminal?.[t.id] || !!t.dangerous}
