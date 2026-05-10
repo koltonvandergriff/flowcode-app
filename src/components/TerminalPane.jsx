@@ -16,12 +16,18 @@ function isMacPlatform() {
     return /mac/i.test(p);
   } catch { return false; }
 }
+
+// Compact "host:port" label for the per-pane "Open in browser" pill.
+// Falls back to the raw string if the URL won't parse so the pill never
+// renders empty when the dev-server detector returns something exotic.
+function shortHostLabel(url) {
+  try { return new URL(url).host; } catch { return url; }
+}
 import { ToastContext } from '../contexts/ToastContext';
 import { SettingsContext } from '../contexts/SettingsContext';
 import { useVoiceInput } from '../hooks/useVoiceInput';
 import { streamChat } from '../lib/aiChat';
 import { detectDevServerUrl } from '../lib/devServerDetector';
-import PreviewPane from './PreviewPane';
 
 const fc = FONTS.mono;
 const fb = FONTS.body;
@@ -402,7 +408,6 @@ export default function TerminalPane({
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const moreMenuRef = useRef(null);
   const [previewUrl, setPreviewUrl] = useState(null);
-  const [showPreview, setShowPreview] = useState(false);
   const [attachedImages, setAttachedImages] = useState([]);
   const [attachMenuOpen, setAttachMenuOpen] = useState(false);
   const attachMenuRef = useRef(null);
@@ -1067,15 +1072,27 @@ export default function TerminalPane({
         )}
 
         {!isApiProvider && previewUrl && (
-          <button onClick={() => setShowPreview((v) => !v)} title={showPreview ? 'Hide preview' : 'Show preview'}
+          <button
+            onClick={() => window.flowade?.shell?.openExternal?.(previewUrl)}
+            title={`Open ${previewUrl} in your default browser`}
             style={{
-              all: 'unset', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-              width: 22, height: 22, borderRadius: 4,
-              color: showPreview ? colors.accent.cyan : colors.text.dim, transition: 'color .15s',
-            }}>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="2" y="3" width="20" height="14" rx="2" ry="2" /><line x1="8" y1="21" x2="16" y2="21" /><line x1="12" y1="17" x2="12" y2="21" />
+              all: 'unset', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4,
+              padding: '2px 7px', borderRadius: 99, height: 20,
+              border: `1px solid ${colors.accent.cyan}55`,
+              background: `${colors.accent.cyan}10`,
+              color: colors.accent.cyan,
+              fontFamily: fc, fontSize: 9, fontWeight: 700,
+              letterSpacing: 0.4,
+              transition: 'background .15s, border-color .15s',
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = `${colors.accent.cyan}22`; e.currentTarget.style.borderColor = `${colors.accent.cyan}aa`; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = `${colors.accent.cyan}10`; e.currentTarget.style.borderColor = `${colors.accent.cyan}55`; }}
+          >
+            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="15 3 21 3 21 9" /><line x1="21" y1="3" x2="14" y2="10" />
+              <path d="M10 5H5a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-5" />
             </svg>
+            <span>{shortHostLabel(previewUrl)}</span>
           </button>
         )}
 
@@ -1399,17 +1416,6 @@ export default function TerminalPane({
               Send
             </button>
           </div>
-          {showPreview && previewUrl && (
-            <PreviewPane
-              url={previewUrl}
-              onClose={() => setShowPreview(false)}
-              onPopout={(popUrl) => {
-                window.dispatchEvent(new CustomEvent('flowade:previewPopout', {
-                  detail: { url: popUrl, terminalId: id },
-                }));
-              }}
-            />
-          )}
         </div>
       )}
 
