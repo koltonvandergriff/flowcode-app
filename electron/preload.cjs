@@ -271,6 +271,10 @@ contextBridge.exposeInMainWorld('flowade', {
     getPopoutPanel: () => new URLSearchParams(window.location.search).get('panel'),
   },
 
+  shell: {
+    openExternal: (url) => ipcRenderer.invoke('shell:openExternal', url),
+  },
+
   platform: process.platform,
   version: '0.1.0',
 });

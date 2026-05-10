@@ -90,19 +90,6 @@ body[data-theme="glasshouse"] > * {
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* BrowserGlasshouse — loading dot in URL bar + sweeping progress strip
-   under the toolbar. Defined globally so they're available regardless of
-   theme attr (the browser pane mounts before the body theme attr in some
-   reload paths). */
-@keyframes flowadeBrowserPulse {
-  0%, 100% { opacity: 0.55; transform: scale(0.85); }
-  50%      { opacity: 1;    transform: scale(1.1); }
-}
-@keyframes flowadeBrowserScan {
-  0%   { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
-}
-
 /* Reduced-motion users: skip the entrance animation and pulse loops. */
 @media (prefers-reduced-motion: reduce) {
   body[data-theme="glasshouse"] [data-gh-animate] {

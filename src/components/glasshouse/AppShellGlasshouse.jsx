@@ -23,8 +23,6 @@ import AnalyticsDashboard from '../AnalyticsDashboard';
 import NotificationsPanel from '../NotificationsPanel';
 import CommandPalette from '../CommandPalette';
 import UpdateNotification from '../UpdateNotification';
-import BrowserGlasshouse from './BrowserGlasshouse';
-import ResizeHandle from '../ResizeHandle';
 import SideNavGlasshouse from './SideNavGlasshouse';
 import OverviewGlasshouse from './OverviewGlasshouse';
 import PricingGlasshouse from './PricingGlasshouse';
@@ -64,30 +62,6 @@ export default function AppShellGlasshouse({ onLogout }) {
       if (page === 'overview') localStorage.setItem('flowade.overview.seen', '1');
     } catch {}
   }, [page]);
-
-  // Browser side-pane (preview for locally-running apps). Toggleable via the
-  // globe button in the topbar, the cmd palette, or the
-  // `flowade:openInBrowser` event. Persists open + width across sessions.
-  const [browserOpen, setBrowserOpen] = useState(() => {
-    try { return localStorage.getItem('flowade.glass.browserOpen') === '1'; } catch { return false; }
-  });
-  const [browserWidth, setBrowserWidth] = useState(() => {
-    try {
-      const w = parseInt(localStorage.getItem('flowade.glass.browserWidth') || '', 10);
-      return Number.isFinite(w) && w >= 300 ? w : 500;
-    } catch { return 500; }
-  });
-  useEffect(() => {
-    try { localStorage.setItem('flowade.glass.browserOpen', browserOpen ? '1' : '0'); } catch {}
-  }, [browserOpen]);
-  useEffect(() => {
-    try { localStorage.setItem('flowade.glass.browserWidth', String(browserWidth)); } catch {}
-  }, [browserWidth]);
-  useEffect(() => {
-    const handler = () => setBrowserOpen(true);
-    window.addEventListener('flowade:openInBrowser', handler);
-    return () => window.removeEventListener('flowade:openInBrowser', handler);
-  }, []);
 
   // Overlay panels — opened from sidebar (settings/pricing) or cmd palette.
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -131,7 +105,6 @@ export default function AppShellGlasshouse({ onLogout }) {
     { id: 'go-terminals', label: 'Go: Terminals', category: 'Navigation', onAction: () => setPage('terminals') },
     { id: 'go-tasks',     label: 'Go: Tasks',     category: 'Navigation', onAction: () => setPage('tasks') },
     { id: 'go-memory',    label: 'Go: Memory',    category: 'Navigation', onAction: () => setPage('memory') },
-    { id: 'toggle-browser', label: 'Toggle Browser', category: 'Panels', onAction: () => setBrowserOpen(o => !o) },
     { id: 'open-settings', label: 'Open Settings', category: 'Panels', onAction: () => setSettingsOpen(true) },
     { id: 'open-billing',  label: 'Open Pricing',  category: 'Panels', onAction: () => setSubscriptionOpen(true) },
     { id: 'open-help',     label: 'Help',          category: 'Panels', onAction: () => setHelpOpen(true) },
@@ -143,40 +116,21 @@ export default function AppShellGlasshouse({ onLogout }) {
       <SideNavGlasshouse activePanel={page} onSelect={handleNav} user={authUser} />
 
       <main style={shell.main}>
-        <Topbar
-          pageId={page}
-          browserOpen={browserOpen}
-          onToggleBrowser={() => setBrowserOpen(o => !o)}
-        />
+        <Topbar pageId={page} />
 
         <div style={shell.content}>
-          <div style={shell.pageWrap}>
-            <ErrorBoundary name={`Glasshouse Page · ${page}`}>
-              {page === 'overview' && (
-                <OverviewGlasshouse userName={userFirstName} onJump={(id) => setPage(id)} />
-              )}
-              {page === 'terminals' && (
-                <TerminalsGlasshouse dangerFlags={dangerFlags} onToggleDanger={toggleDanger} />
-              )}
-              {page === 'chat' && <AIChatGlasshouse />}
-              {page === 'tasks' && <TasksGlasshouse onClose={() => setPage('overview')} />}
-              {page === 'memory' && <MemoryGlasshouse onClose={() => setPage('overview')} />}
-              {page === 'settings' && <SettingsGlasshouse onLogout={onLogout} />}
-              {page === 'pricing'  && <PricingGlasshouse />}
-            </ErrorBoundary>
-          </div>
-
-          {browserOpen && (
-            <ResizeHandle direction="vertical" onResize={(delta) => {
-              setBrowserWidth(w => Math.max(300, Math.min(900, (w || 500) - delta)));
-            }} />
-          )}
-          <ErrorBoundary name="Browser Panel">
-            <BrowserGlasshouse
-              open={browserOpen}
-              onToggle={() => setBrowserOpen(o => !o)}
-              width={browserWidth}
-            />
+          <ErrorBoundary name={`Glasshouse Page · ${page}`}>
+            {page === 'overview' && (
+              <OverviewGlasshouse userName={userFirstName} onJump={(id) => setPage(id)} />
+            )}
+            {page === 'terminals' && (
+              <TerminalsGlasshouse dangerFlags={dangerFlags} onToggleDanger={toggleDanger} />
+            )}
+            {page === 'chat' && <AIChatGlasshouse />}
+            {page === 'tasks' && <TasksGlasshouse onClose={() => setPage('overview')} />}
+            {page === 'memory' && <MemoryGlasshouse onClose={() => setPage('overview')} />}
+            {page === 'settings' && <SettingsGlasshouse onLogout={onLogout} />}
+            {page === 'pricing'  && <PricingGlasshouse />}
           </ErrorBoundary>
         </div>
       </main>
@@ -201,7 +155,7 @@ export default function AppShellGlasshouse({ onLogout }) {
 // ---------------------------------------------------------------------------
 // Topbar — slim crumb bar + sync pill, replaces classic Header
 // ---------------------------------------------------------------------------
-function Topbar({ pageId, browserOpen, onToggleBrowser }) {
+function Topbar({ pageId }) {
   return (
     <div style={top.bar}>
       <div style={top.crumbs}>
@@ -213,13 +167,6 @@ function Topbar({ pageId, browserOpen, onToggleBrowser }) {
         <span style={{ ...top.pill, ...top.pillCy }}>
           <span style={{ ...top.dot, background: '#4de6f0' }} /> Synced · 405 memories
         </span>
-        <IconBtn title={browserOpen ? 'Hide preview browser' : 'Open preview browser'} onClick={onToggleBrowser} active={browserOpen}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="12" r="10" />
-            <line x1="2" y1="12" x2="22" y2="12" />
-            <path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z" />
-          </svg>
-        </IconBtn>
         <IconBtn title="Search">⌕</IconBtn>
         <IconBtn title="Notifications">◔</IconBtn>
       </div>
@@ -227,16 +174,14 @@ function Topbar({ pageId, browserOpen, onToggleBrowser }) {
   );
 }
 
-function IconBtn({ children, title, onClick, active }) {
-  const baseColor = active ? '#4de6f0' : '#94a3b8';
-  const baseBg = active ? 'rgba(77,230,240,0.1)' : 'transparent';
+function IconBtn({ children, title, onClick }) {
   return (
     <button
       onClick={onClick}
       title={title}
-      style={{ ...top.iconBtn, color: baseColor, background: baseBg }}
-      onMouseEnter={(e) => { e.currentTarget.style.background = active ? 'rgba(77,230,240,0.15)' : 'rgba(255,255,255,0.05)'; e.currentTarget.style.color = active ? '#4de6f0' : '#f1f5f9'; }}
-      onMouseLeave={(e) => { e.currentTarget.style.background = baseBg; e.currentTarget.style.color = baseColor; }}
+      style={top.iconBtn}
+      onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.color = '#f1f5f9'; }}
+      onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#94a3b8'; }}
     >
       {children}
     </button>
@@ -274,10 +219,6 @@ const shell = {
   content: {
     flex: 1, display: 'flex', minHeight: 0,
     overflow: 'hidden',
-  },
-  pageWrap: {
-    flex: 1, minWidth: 0, minHeight: 0,
-    display: 'flex',
   },
 };
 

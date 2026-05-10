@@ -943,6 +943,22 @@ ipcMain.handle('window:closePopout', (_, windowId) => {
   childWindows.delete(windowId);
 });
 
+// Open a URL in the user's default external browser. Used by the
+// "Open in browser" action on the Terminals page (preview localhost
+// dev servers without an embedded webview). Only http/https schemes
+// are honoured to keep this from becoming a generic process launcher.
+ipcMain.handle('shell:openExternal', async (_, url) => {
+  if (typeof url !== 'string') return { ok: false, reason: 'url-not-string' };
+  const trimmed = url.trim();
+  if (!/^https?:\/\//i.test(trimmed)) return { ok: false, reason: 'unsupported-scheme' };
+  try {
+    await shell.openExternal(trimmed);
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, reason: err?.message || 'openExternal failed' };
+  }
+});
+
 // --- System Tray ---
 
 function createTray() {
