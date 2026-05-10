@@ -1,6 +1,7 @@
 import { app } from 'electron';
 import { join } from 'path';
 import { existsSync, readFileSync, writeFileSync, appendFileSync, mkdirSync, readdirSync, unlinkSync, statSync } from 'fs';
+import { detectSecrets } from './secretScrub.js';
 
 const MAX_LOG_SIZE = 5 * 1024 * 1024;
 const MAX_LOG_FILES = 10;
@@ -71,8 +72,35 @@ export class CrashReporter {
     }
   }
 
+  /**
+   * Build a JSON crash report for export to the support team.
+   *
+   * Every log line and the user's description run through the secret
+   * scrubber before serialization — pasted API keys, JWTs, and PEM
+   * blocks become `[REDACTED:<kind>]` so a user submitting a report
+   * doesn't leak credentials in the process. The report also includes
+   * a top-level `secretRedactions` count so the support team can see
+   * that scrubbing happened.
+   */
   generateReport(userDescription) {
     const logs = this.getRecentLogs(100);
+    let redactionCount = 0;
+
+    const scrubText = (s) => {
+      if (typeof s !== 'string' || !s) return s;
+      const { scrubbed, hits } = detectSecrets(s);
+      redactionCount += hits.length;
+      return scrubbed;
+    };
+
+    const safeLogs = logs.map(entry => ({
+      ...entry,
+      message: scrubText(entry.message),
+      meta: entry.meta ? JSON.parse(scrubText(JSON.stringify(entry.meta))) : entry.meta,
+    }));
+
+    const safeUserDescription = scrubText(userDescription || '');
+
     const report = {
       version: app.getVersion(),
       platform: process.platform,
@@ -80,8 +108,9 @@ export class CrashReporter {
       electronVersion: process.versions.electron,
       nodeVersion: process.versions.node,
       timestamp: new Date().toISOString(),
-      userDescription: userDescription || '',
-      recentLogs: logs,
+      userDescription: safeUserDescription,
+      secretRedactions: redactionCount,
+      recentLogs: safeLogs,
     };
     return JSON.stringify(report, null, 2);
   }

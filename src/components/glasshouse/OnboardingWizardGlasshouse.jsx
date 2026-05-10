@@ -112,15 +112,26 @@ function Progress({ idx }) {
 // ---------------------------------------------------------------------------
 // Step 01 — Account
 // ---------------------------------------------------------------------------
+// Version hash of the legal-document bundle in this build. Bump when
+// any of TOS / Privacy / AUP changes meaningfully. Stored alongside the
+// acceptance timestamp so we can detect when an existing user needs to
+// re-consent to a material update.
+const LEGAL_VERSION = '2026-05-10';
+
 function StepAccount({ data, onSubmit, onBackToLogin }) {
   const [email, setEmail] = useState(data.email || '');
   const [password, setPassword] = useState('');
   const [name, setName] = useState(data.name || '');
+  const [legalAccepted, setLegalAccepted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   const submit = useCallback(async (e) => {
     e.preventDefault();
+    if (!legalAccepted) {
+      setError('Please accept the Terms of Service and Privacy Policy to continue.');
+      return;
+    }
     setError(''); setLoading(true);
     try {
       const result = await signup(email, password, name);
@@ -129,13 +140,22 @@ function StepAccount({ data, onSubmit, onBackToLogin }) {
         setLoading(false);
         return;
       }
+      // Record consent locally — also fire-and-forget a profile update so
+      // the server has an auditable acceptance row. Server-side write is
+      // best-effort; the local timestamp is the user-facing record.
+      const acceptedAt = new Date().toISOString();
+      try {
+        localStorage.setItem('flowade.legal.acceptedAt', acceptedAt);
+        localStorage.setItem('flowade.legal.acceptedVersion', LEGAL_VERSION);
+      } catch {}
+      window.flowade?.auth?.recordLegalConsent?.({ acceptedAt, version: LEGAL_VERSION })?.catch?.(() => {});
       onSubmit({ email, password, name });
     } catch (err) {
       setError(err?.message || 'Sign-up failed.');
     } finally {
       setLoading(false);
     }
-  }, [email, password, name, onSubmit]);
+  }, [email, password, name, legalAccepted, onSubmit]);
 
   return (
     <div style={card.normal}>
@@ -165,6 +185,36 @@ function StepAccount({ data, onSubmit, onBackToLogin }) {
           <button type="button" style={btn.provider}><span style={btn.providerIc}>G</span> Google</button>
           <button type="button" style={btn.provider}><span style={btn.providerIc}>⏍</span> Magic link</button>
         </div>
+
+        <label style={card.consentRow}>
+          <input
+            type="checkbox"
+            checked={legalAccepted}
+            onChange={(e) => setLegalAccepted(e.target.checked)}
+            style={card.consentBox}
+          />
+          <span style={card.consentText}>
+            I have read and agree to the{' '}
+            <a
+              href="https://github.com/koltonvandergriff/flowade-app/blob/main/legal/TERMS_OF_SERVICE.md"
+              onClick={(e) => { e.preventDefault(); window.flowade?.shell?.openExternal?.('https://github.com/koltonvandergriff/flowade-app/blob/main/legal/TERMS_OF_SERVICE.md'); }}
+              style={card.consentLink}
+            >Terms of Service</a>
+            {', '}
+            <a
+              href="https://github.com/koltonvandergriff/flowade-app/blob/main/legal/PRIVACY_POLICY.md"
+              onClick={(e) => { e.preventDefault(); window.flowade?.shell?.openExternal?.('https://github.com/koltonvandergriff/flowade-app/blob/main/legal/PRIVACY_POLICY.md'); }}
+              style={card.consentLink}
+            >Privacy Policy</a>
+            {', and '}
+            <a
+              href="https://github.com/koltonvandergriff/flowade-app/blob/main/legal/AI_OUTPUT_DISCLAIMER.md"
+              onClick={(e) => { e.preventDefault(); window.flowade?.shell?.openExternal?.('https://github.com/koltonvandergriff/flowade-app/blob/main/legal/AI_OUTPUT_DISCLAIMER.md'); }}
+              style={card.consentLink}
+            >AI Output Disclaimer</a>
+            . I understand that AI-generated output may be incorrect and that I'm responsible for reviewing it before relying on it.
+          </span>
+        </label>
 
         {error && <div style={card.errorBanner}>{error}</div>}
       </form>
@@ -620,6 +670,34 @@ const card = {
     margin: '6px 0', textAlign: 'center',
   },
   providers: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 },
+  consentRow: {
+    display: 'flex', alignItems: 'flex-start', gap: 10,
+    padding: '12px 14px',
+    background: 'rgba(255,255,255,0.02)',
+    border: '1px solid rgba(255,255,255,0.06)',
+    borderRadius: 8,
+    cursor: 'pointer',
+    marginTop: 4,
+  },
+  consentBox: {
+    marginTop: 2,
+    width: 14, height: 14,
+    accentColor: '#4de6f0',
+    cursor: 'pointer',
+    flexShrink: 0,
+  },
+  consentText: {
+    fontFamily: 'var(--gh-font-mono, monospace)',
+    fontSize: 11.5,
+    color: '#94a3b8',
+    lineHeight: 1.55,
+  },
+  consentLink: {
+    color: '#4de6f0',
+    textDecoration: 'none',
+    borderBottom: '1px dotted rgba(77,230,240,0.5)',
+    fontWeight: 600,
+  },
   errorBanner: {
     padding: '10px 14px', borderRadius: 8,
     background: 'rgba(255,107,107,0.08)',

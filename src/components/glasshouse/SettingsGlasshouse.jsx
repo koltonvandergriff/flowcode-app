@@ -16,6 +16,7 @@ const SECTIONS = [
   { id: 'keybindings', label: 'Keybindings' },
   { id: 'notify',      label: 'Notifications' },
   { id: 'integrations', label: 'Integrations' },
+  { id: 'legal',       label: 'Legal' },
 ];
 
 const KEY_DEFS = [
@@ -57,6 +58,7 @@ export default function SettingsGlasshouse({ onLogout }) {
           {section === 'keybindings'  && <KeybindingsSection />}
           {section === 'notify'       && <NotificationsSection />}
           {section === 'integrations' && <IntegrationsSection />}
+          {section === 'legal'        && <LegalSection />}
         </div>
       </div>
     </div>
@@ -173,6 +175,120 @@ function PlaceholderSection({ title, body }) {
     </>
   );
 }
+
+// ---------------------------------------------------------------------------
+// Legal — lists the current legal docs with version + last-accepted info.
+// Documents live in the repo at /legal/* and are bundled with the build so
+// users can read them offline. Links open in the user's default browser
+// via the existing shell.openExternal IPC.
+// ---------------------------------------------------------------------------
+
+const LEGAL_DOCS = [
+  { id: 'tos',      label: 'Terms of Service',          file: 'TERMS_OF_SERVICE.md' },
+  { id: 'privacy',  label: 'Privacy Policy',            file: 'PRIVACY_POLICY.md' },
+  { id: 'aup',      label: 'Acceptable Use Policy',     file: 'ACCEPTABLE_USE_POLICY.md' },
+  { id: 'ai',       label: 'AI Output Disclaimer',      file: 'AI_OUTPUT_DISCLAIMER.md' },
+  { id: 'cookies',  label: 'Cookie & Local Storage',    file: 'COOKIE_POLICY.md' },
+  { id: 'dmca',     label: 'DMCA Policy',               file: 'DMCA_POLICY.md' },
+  { id: 'license',  label: 'Software License',          file: '../LICENSE' },
+];
+
+function LegalSection() {
+  const acceptedAt = (() => { try { return localStorage.getItem('flowade.legal.acceptedAt'); } catch { return null; } })();
+  const acceptedVersion = (() => { try { return localStorage.getItem('flowade.legal.acceptedVersion'); } catch { return null; } })();
+
+  const open = (file) => {
+    // Repo-relative path on the public GitHub mirror. Once flowade.com is
+    // live, swap to flowade.com/terms etc.
+    const base = 'https://github.com/koltonvandergriff/flowade-app/blob/main/legal/';
+    const url = file.startsWith('../') ? base + file.replace('../', '../') : base + file;
+    window.flowade?.shell?.openExternal?.(url);
+  };
+
+  return (
+    <>
+      <h2 style={s.cardH2}>Legal</h2>
+      <p style={s.cardSub}>
+        FlowADE is governed by the documents below. You agreed to them when you created your account.
+        We will email you at least 30 days before any material change.
+      </p>
+
+      <div style={legalStyles.acceptanceBox}>
+        <div style={legalStyles.acceptanceLabel}>YOUR ACCEPTANCE</div>
+        {acceptedAt ? (
+          <div style={legalStyles.acceptanceMeta}>
+            <div>Accepted: <span style={legalStyles.acceptanceValue}>{new Date(acceptedAt).toLocaleString()}</span></div>
+            <div>Version: <span style={legalStyles.acceptanceValue}>{acceptedVersion || 'unknown'}</span></div>
+          </div>
+        ) : (
+          <div style={legalStyles.acceptanceMeta}>No acceptance recorded locally — re-accept via Sign out → Sign in.</div>
+        )}
+      </div>
+
+      <div style={legalStyles.docList}>
+        {LEGAL_DOCS.map(doc => (
+          <button
+            key={doc.id}
+            onClick={() => open(doc.file)}
+            style={legalStyles.docRow}
+          >
+            <span style={legalStyles.docLabel}>{doc.label}</span>
+            <span style={legalStyles.docOpen}>Open ↗</span>
+          </button>
+        ))}
+      </div>
+
+      <p style={{ ...s.cardSub, marginTop: 14, fontSize: 11 }}>
+        Questions? legal@flowade.com — for privacy-rights requests use privacy@flowade.com.
+      </p>
+    </>
+  );
+}
+
+const legalStyles = {
+  acceptanceBox: {
+    padding: '12px 14px',
+    background: 'rgba(77,230,240,0.04)',
+    border: '1px solid rgba(77,230,240,0.18)',
+    borderRadius: 8,
+    marginBottom: 14,
+  },
+  acceptanceLabel: {
+    fontFamily: 'var(--gh-font-techno, "Chakra Petch", sans-serif)',
+    fontSize: 9, fontWeight: 700,
+    letterSpacing: '0.32em', textTransform: 'uppercase',
+    color: '#4de6f0',
+    marginBottom: 6,
+  },
+  acceptanceMeta: {
+    fontFamily: 'var(--gh-font-mono, monospace)',
+    fontSize: 11,
+    color: '#94a3b8',
+    lineHeight: 1.6,
+  },
+  acceptanceValue: { color: '#f1f5f9', fontWeight: 600 },
+  docList: { display: 'flex', flexDirection: 'column', gap: 6 },
+  docRow: {
+    all: 'unset', cursor: 'pointer',
+    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+    padding: '10px 14px',
+    background: 'rgba(255,255,255,0.025)',
+    border: '1px solid rgba(255,255,255,0.06)',
+    borderRadius: 8,
+    transition: 'background .15s, border-color .15s',
+  },
+  docLabel: {
+    fontFamily: 'var(--gh-font-mono, monospace)',
+    fontSize: 12, fontWeight: 600,
+    color: '#f1f5f9',
+  },
+  docOpen: {
+    fontFamily: 'var(--gh-font-mono, monospace)',
+    fontSize: 10,
+    color: '#4de6f0',
+    letterSpacing: '0.04em',
+  },
+};
 
 // ---------------------------------------------------------------------------
 // Keybindings — inline editor backed by src/lib/keybindings.js

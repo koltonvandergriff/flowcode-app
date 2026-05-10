@@ -43,7 +43,12 @@
   "build": {
     "appId": "com.dutchmade.flowade",
     "productName": "FlowADE",
-    "copyright": "Copyright (c) 2025 DutchMade Co.",
+    "copyright": "Copyright (c) 2026 DutchMade Co. All rights reserved.",
+    "asar": true,
+    "asarUnpack": [
+      "node_modules/node-pty/**/*",
+      "node_modules/keytar/**/*"
+    ],
     "directories": {
       "output": "release"
     },
@@ -51,7 +56,12 @@
       "dist/**/*",
       "electron/**/*",
       "mcp-server/**/*",
-      "package.json"
+      "package.json",
+      "!**/*.map",
+      "!**/test/**",
+      "!**/tests/**",
+      "!**/*.test.js",
+      "!**/*.spec.js"
     ],
     "extraResources": [
       {
