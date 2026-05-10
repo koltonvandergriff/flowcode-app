@@ -1,6 +1,7 @@
 import { app, BrowserWindow, ipcMain, screen, dialog, Tray, Menu, nativeImage, shell } from 'electron';
 import { fileURLToPath } from 'url';
-import { dirname, join, extname } from 'path';
+import { dirname, join, extname, resolve, normalize, sep } from 'path';
+import { homedir } from 'os';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 import { PtyManager } from './ptyManager.js';
@@ -82,8 +83,11 @@ function createSplashWindow() {
     center: true,
     show: false,
     webPreferences: {
-      contextIsolation: false,
+      // Splash is a static HTML/CSS file with no IPC needs. Locked down
+      // fully — contextIsolation + sandbox + no node integration.
+      contextIsolation: true,
       nodeIntegration: false,
+      sandbox: true,
     },
   });
 
@@ -120,8 +124,15 @@ function createWindow() {
       preload: join(__dirname, 'preload.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false,
-      webviewTag: true,
+      // sandbox=true forces renderer into a separate OS process with
+      // no direct Node access; preload still works via ipcRenderer
+      // because contextBridge is sandbox-compatible.
+      sandbox: true,
+      // Embedded browser pane has been retired in favor of
+      // shell.openExternal handoffs to the user's default browser,
+      // so the <webview> tag is no longer required and disabling it
+      // removes a class of renderer-to-main escape paths.
+      webviewTag: false,
     },
   });
 
@@ -723,8 +734,55 @@ ipcMain.handle('git:branch', async (_, { cwd }) => {
 });
 
 // --- File System IPC ---
+//
+// All fs:* IPC handlers run path requests through `isAllowedPath` before
+// touching disk. We accept reads/writes under the user's home directory
+// (where workspaces live) and the app's userData directory. We reject
+// anything that resolves outside those roots — including symlinks that
+// would escape — so a renderer compromise can't ex/in-filtrate
+// `~/.ssh/id_rsa`, `/etc/passwd`, or `C:\Windows\...`.
+
+const FS_ALLOW_ROOTS = (() => {
+  const roots = [resolve(homedir())];
+  try { roots.push(resolve(app.getPath('userData'))); } catch {}
+  try { roots.push(resolve(app.getPath('temp'))); } catch {}
+  return roots;
+})();
+
+function isAllowedPath(target) {
+  if (typeof target !== 'string' || !target.trim()) return false;
+  let abs;
+  try { abs = resolve(target); } catch { return false; }
+  const norm = normalize(abs);
+  // Block obvious sensitive areas even within the home directory.
+  const lower = norm.toLowerCase();
+  const blockedSubstrings = [
+    `${sep}.ssh${sep}`,
+    `${sep}.aws${sep}credentials`,
+    `${sep}.gnupg${sep}`,
+    `${sep}.kube${sep}config`,
+    // Windows-specific sensitive paths.
+    `${sep}windows${sep}system32${sep}config${sep}sam`,
+  ];
+  for (const b of blockedSubstrings) {
+    if (lower.includes(b.toLowerCase())) return false;
+  }
+  for (const root of FS_ALLOW_ROOTS) {
+    if (norm === root || norm.startsWith(root + sep)) return true;
+  }
+  return false;
+}
+
+function denyResponse(action) {
+  const err = new Error(`fs:${action} denied — path outside allowed roots or blocked sensitive directory`);
+  err.code = 'EPERM_PATH_DENIED';
+  return err;
+}
+
+
 
 ipcMain.handle('fs:readDir', async (_, dirPath) => {
+  if (!isAllowedPath(dirPath)) throw denyResponse('readDir');
   try {
     const entries = readdirSync(dirPath, { withFileTypes: true });
     return entries.map(e => ({
@@ -741,12 +799,14 @@ ipcMain.handle('fs:readDir', async (_, dirPath) => {
 });
 
 ipcMain.handle('fs:readFile', async (_, filePath) => {
+  if (!isAllowedPath(filePath)) throw denyResponse('readFile');
   try {
     return readFileSync(filePath, 'utf-8');
   } catch (err) { throw new Error(err.message); }
 });
 
 ipcMain.handle('fs:writeFile', async (_, { filePath, content }) => {
+  if (!isAllowedPath(filePath)) throw denyResponse('writeFile');
   try {
     writeFileSync(filePath, content, 'utf-8');
     return true;
@@ -754,6 +814,7 @@ ipcMain.handle('fs:writeFile', async (_, { filePath, content }) => {
 });
 
 ipcMain.handle('fs:stat', async (_, filePath) => {
+  if (!isAllowedPath(filePath)) return null;
   try {
     const s = statSync(filePath);
     return { size: s.size, isDirectory: s.isDirectory(), modified: s.mtime.toISOString() };
@@ -761,10 +822,18 @@ ipcMain.handle('fs:stat', async (_, filePath) => {
 });
 
 ipcMain.handle('fs:exists', async (_, filePath) => {
+  if (!isAllowedPath(filePath)) return false;
   return existsSync(filePath);
 });
 
 // --- GitHub API IPC ---
+//
+// URL path segments are user-controlled (owner, repo, etc.). Always
+// run them through encodeURIComponent before splicing into the URL —
+// otherwise `/` or `?` in a malicious name would let a renderer redirect
+// the call to a different endpoint and exfiltrate the GitHub PAT.
+
+const ghEnc = (s) => encodeURIComponent(String(s || ''));
 
 async function ghFetch(path, token) {
   const res = await fetch(`https://api.github.com${path}`, {
@@ -785,23 +854,27 @@ ipcMain.handle('github:repos', async (_, { org, page = 1, perPage = 30 }) => {
   const token = envStore.get('GITHUB_PAT');
   if (!token) return { error: 'No GitHub PAT configured' };
   try {
-    const endpoint = org ? `/orgs/${org}/repos` : '/user/repos';
-    return await ghFetch(`${endpoint}?sort=updated&per_page=${perPage}&page=${page}`, token);
+    const endpoint = org ? `/orgs/${ghEnc(org)}/repos` : '/user/repos';
+    const p = Number.isInteger(+page) ? +page : 1;
+    const pp = Math.min(100, Math.max(1, Number.isInteger(+perPage) ? +perPage : 30));
+    return await ghFetch(`${endpoint}?sort=updated&per_page=${pp}&page=${p}`, token);
   } catch (err) { return { error: err.message }; }
 });
 
 ipcMain.handle('github:prs', async (_, { owner, repo, state = 'open' }) => {
   const token = envStore.get('GITHUB_PAT');
   if (!token) return { error: 'No GitHub PAT configured' };
-  try { return await ghFetch(`/repos/${owner}/${repo}/pulls?state=${state}&per_page=20&sort=updated`, token); }
+  const s = ['open', 'closed', 'all'].includes(state) ? state : 'open';
+  try { return await ghFetch(`/repos/${ghEnc(owner)}/${ghEnc(repo)}/pulls?state=${s}&per_page=20&sort=updated`, token); }
   catch (err) { return { error: err.message }; }
 });
 
 ipcMain.handle('github:issues', async (_, { owner, repo, state = 'open' }) => {
   const token = envStore.get('GITHUB_PAT');
   if (!token) return { error: 'No GitHub PAT configured' };
+  const s = ['open', 'closed', 'all'].includes(state) ? state : 'open';
   try {
-    const items = await ghFetch(`/repos/${owner}/${repo}/issues?state=${state}&per_page=20&sort=updated`, token);
+    const items = await ghFetch(`/repos/${ghEnc(owner)}/${ghEnc(repo)}/issues?state=${s}&per_page=20&sort=updated`, token);
     return items.filter(i => !i.pull_request);
   } catch (err) { return { error: err.message }; }
 });
@@ -816,21 +889,23 @@ ipcMain.handle('github:notifications', async () => {
 ipcMain.handle('github:repoInfo', async (_, { owner, repo }) => {
   const token = envStore.get('GITHUB_PAT');
   if (!token) return { error: 'No GitHub PAT configured' };
-  try { return await ghFetch(`/repos/${owner}/${repo}`, token); }
+  try { return await ghFetch(`/repos/${ghEnc(owner)}/${ghEnc(repo)}`, token); }
   catch (err) { return { error: err.message }; }
 });
 
 ipcMain.handle('github:contents', async (_, { owner, repo, path = '' }) => {
   const token = envStore.get('GITHUB_PAT');
   if (!token) return { error: 'No GitHub PAT configured' };
-  try { return await ghFetch(`/repos/${owner}/${repo}/contents/${path}`, token); }
+  // Path may contain slashes legitimately; encode each segment.
+  const encodedPath = String(path || '').split('/').map(ghEnc).join('/');
+  try { return await ghFetch(`/repos/${ghEnc(owner)}/${ghEnc(repo)}/contents/${encodedPath}`, token); }
   catch (err) { return { error: err.message }; }
 });
 
 ipcMain.handle('github:branches', async (_, { owner, repo }) => {
   const token = envStore.get('GITHUB_PAT');
   if (!token) return { error: 'No GitHub PAT configured' };
-  try { return await ghFetch(`/repos/${owner}/${repo}/branches?per_page=30`, token); }
+  try { return await ghFetch(`/repos/${ghEnc(owner)}/${ghEnc(repo)}/branches?per_page=30`, token); }
   catch (err) { return { error: err.message }; }
 });
 
@@ -868,7 +943,7 @@ ipcMain.handle('window:popout', (_, { terminalId, bounds }) => {
       preload: join(__dirname, 'preload.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false,
+      sandbox: true,
     },
   });
 

@@ -1,5 +1,6 @@
 import { supabase } from './supabaseClient.js';
 import { persistCategoryTree, listCategories, assignCategory, createCategory } from './memoryCategories.js';
+import { detectSecrets } from './secretScrub.js';
 
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
 const ANTHROPIC_VERSION = '2023-06-01';
@@ -64,12 +65,20 @@ function snippet(text, max = 240) {
 function buildUserMessage(memories) {
   const lines = memories.map((m) => {
     const tags = (m.tags || []).filter(Boolean).join(', ');
+    // Final guard before user content leaves the machine. If a legacy
+    // row contains a secret pattern, send the redacted form to the
+    // categorizer rather than the raw key. We still want the row
+    // categorized so the user's vault isn't stuck — Anthropic just
+    // shouldn't see the cleartext.
+    const safeTitle = detectSecrets(m.title || '').scrubbed;
+    const safeSnippet = detectSecrets(snippet(m.content)).scrubbed;
+    const safeTags = detectSecrets(tags).scrubbed;
     return JSON.stringify({
       id: m.id,
-      title: m.title || '',
+      title: safeTitle,
       type: m.type || 'note',
-      tags: tags || null,
-      snippet: snippet(m.content),
+      tags: safeTags || null,
+      snippet: safeSnippet,
     });
   });
   return [

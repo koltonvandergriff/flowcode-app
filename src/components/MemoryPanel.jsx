@@ -192,12 +192,17 @@ export default function MemoryPanel({ open, onToggle, embedded = false }) {
 
   const handleCreate = async () => {
     if (!form.title.trim()) return;
-    await window.flowade?.memory.create({
+    const result = await window.flowade?.memory.create({
       title: form.title.trim(),
       content: form.content.trim(),
       type: form.type,
       tags: form.tags.split(',').map(t => t.trim()).filter(Boolean),
     });
+    if (result?.error === 'secret-detected') {
+      const kinds = (result.secretHits || []).map(h => h.name).join(', ') || 'secret';
+      alert(`Memory not saved — looks like an API key or credential (${kinds}). Save secrets in Settings → API Keys instead; they live in your OS keychain there and never reach the cloud.`);
+      return;
+    }
     setForm({ title: '', content: '', type: 'note', tags: '' });
     setCreating(false);
     load();

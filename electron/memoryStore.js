@@ -3,6 +3,7 @@ import { join } from 'path';
 import { existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync, unlinkSync } from 'fs';
 import { supabase } from './supabaseClient.js';
 import { SyncQueue, classifySupabaseError } from './syncQueue.js';
+import { detectSecretsInFields } from './secretScrub.js';
 
 function getDeviceId() {
   const settingsPath = join(app.getPath('userData'), 'flowade-data', 'device.json');
@@ -309,6 +310,13 @@ export class MemoryStore {
     if (count >= limit) {
       return { error: `Memory limit reached (${count}/${limit} for ${this.tier} tier)` };
     }
+    // Block secret-bearing input before it reaches local disk OR the
+    // sync queue. Better to fail loudly than to quietly ship a key to
+    // Supabase + OpenAI + Anthropic.
+    const scan = detectSecretsInFields({ title, content, tags: (tags || []).join(' ') });
+    if (scan.hasSecrets) {
+      return { error: 'secret-detected', secretHits: scan.hits };
+    }
     const id = `mem-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`;
     const entry = { id, title, content, tags, type, createdAt: Date.now(), updatedAt: Date.now() };
     this._writeLocal(entry);
@@ -321,6 +329,17 @@ export class MemoryStore {
     const path = join(this.memoryDir, `${id}.json`);
     const entry = this._readJson(path);
     if (!entry || entry.deletedAt) return null;
+    // Re-scan on every update. Users sometimes edit a memory to paste
+    // in a key after it was created clean.
+    const merged = { ...entry, ...updates };
+    const scan = detectSecretsInFields({
+      title: merged.title || '',
+      content: merged.content || '',
+      tags: (merged.tags || []).join(' '),
+    });
+    if (scan.hasSecrets) {
+      return { error: 'secret-detected', secretHits: scan.hits };
+    }
     Object.assign(entry, updates, { updatedAt: Date.now() });
     this._writeLocal(entry);
     this._queueUpsert(entry);

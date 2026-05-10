@@ -5,6 +5,7 @@
 // with ~80 tokens of context each ≈ $0.0016. Negligible.
 
 import { supabase } from './supabaseClient.js';
+import { detectSecrets } from './secretScrub.js';
 
 const OPENAI_URL = 'https://api.openai.com/v1/embeddings';
 const MODEL = 'text-embedding-3-small'; // 1536 dims — matches migration 006
@@ -45,6 +46,14 @@ export async function embedMemory(memory, apiKey) {
   if (!apiKey || !memory) return null;
   const input = shapeForEmbedding(memory);
   if (!input.trim()) return null;
+  // Belt-and-suspenders: even though memoryStore.create now blocks
+  // secret-bearing input, this path is also invoked from the backfill
+  // IPC over legacy rows that pre-date the scrubber. Refuse to ship
+  // detectable secrets to OpenAI under any circumstance.
+  if (detectSecrets(input).hasSecrets) {
+    console.warn('[memoryEmbeddings] skipping memory', memory.id, '— secret pattern matched');
+    return null;
+  }
   const [vector] = await embedBatch([input], apiKey);
   return vector || null;
 }
