@@ -244,21 +244,21 @@ export default function SettingsPanel({ open, onClose, onLogout }) {
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <div>
                     <label style={{ fontSize: 11, fontWeight: 700, color: colors.text.muted, fontFamily: fc, letterSpacing: 1, display: 'block', marginBottom: 4 }}>
-                      CAVEMAN MODE BY DEFAULT
+                      LEAN MODE BY DEFAULT
                     </label>
                     <span style={{ fontSize: 10, color: colors.text.ghost, fontFamily: fc }}>
-                      Auto-enable on new Claude CLI terminals. Reduces token usage ~65%.
+                      Auto-enable on new Claude CLI terminals. Compresses AI responses to trim tokens (~30-50% typical, more at higher intensity).
                     </span>
                   </div>
-                  <button onClick={() => updateSetting('cavemanDefault', !settings.cavemanDefault)} style={{
+                  <button onClick={() => updateSetting('leanDefault', !(settings.leanDefault ?? settings.cavemanDefault))} style={{
                     all: 'unset', cursor: 'pointer', width: 36, height: 18, borderRadius: 9, position: 'relative',
-                    background: settings.cavemanDefault ? '#f0a050' : colors.border.subtle,
+                    background: (settings.leanDefault ?? settings.cavemanDefault) ? '#4de6f0' : colors.border.subtle,
                     transition: 'background .25s ease', flexShrink: 0,
                   }}>
                     <div style={{
                       width: 14, height: 14, borderRadius: '50%', position: 'absolute', top: 2,
-                      left: settings.cavemanDefault ? 20 : 2,
-                      background: settings.cavemanDefault ? '#fff' : colors.text.dim,
+                      left: (settings.leanDefault ?? settings.cavemanDefault) ? 20 : 2,
+                      background: (settings.leanDefault ?? settings.cavemanDefault) ? '#001014' : colors.text.dim,
                       transition: 'left .25s ease',
                     }} />
                   </button>

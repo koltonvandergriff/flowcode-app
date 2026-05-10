@@ -406,8 +406,11 @@ export default function TerminalPane({
   const [attachedImages, setAttachedImages] = useState([]);
   const [attachMenuOpen, setAttachMenuOpen] = useState(false);
   const attachMenuRef = useRef(null);
-  const [cavemanActive, setCavemanActive] = useState(false);
-  const cavemanInitRef = useRef(false);
+  // Internally still called "caveman" because the skill it toggles is
+  // /caveman in the user's Claude plugin folder. UI labels everywhere
+  // surface as "Lean" — that's the FlowADE-facing brand name.
+  const [leanActive, setLeanActive] = useState(false);
+  const leanInitRef = useRef(false);
   const ctxAlertedRef = useRef(0);
   const unsubDataRef = useRef(null);
   const unsubExitRef = useRef(null);
@@ -451,17 +454,20 @@ export default function TerminalPane({
   }, []);
 
   useEffect(() => {
-    if (cavemanInitRef.current) return;
+    if (leanInitRef.current) return;
     if (provider !== 'claude' || isApiProvider) return;
-    cavemanInitRef.current = true;
-    if (settings?.cavemanDefault) {
-      setCavemanActive(true);
+    leanInitRef.current = true;
+    // settings.cavemanDefault is the legacy key — read it under the new
+    // settings.leanDefault first, fall back to legacy for existing prefs.
+    const leanDefault = settings?.leanDefault ?? settings?.cavemanDefault;
+    if (leanDefault) {
+      setLeanActive(true);
       setTimeout(() => sendToTerminal('/caveman\r'), 1500);
-    } else if (!localStorage.getItem('fc-caveman-hint')) {
-      localStorage.setItem('fc-caveman-hint', '1');
-      setTimeout(() => addToast('Tip: Enable Caveman mode (CM) to reduce token usage ~65%', 'info'), 3000);
+    } else if (!localStorage.getItem('fc-lean-hint') && !localStorage.getItem('fc-caveman-hint')) {
+      localStorage.setItem('fc-lean-hint', '1');
+      setTimeout(() => addToast('Tip: Enable Lean mode to compress AI replies and trim tokens.', 'info'), 3000);
     }
-  }, [provider, isApiProvider, settings?.cavemanDefault]);
+  }, [provider, isApiProvider, settings?.leanDefault, settings?.cavemanDefault]);
 
   const sendToTerminal = useCallback((text) => {
     window.flowade?.terminal.write(id, text);
@@ -1056,15 +1062,16 @@ export default function TerminalPane({
               )}
 
               {provider === 'claude' && !isApiProvider && (
-                <button onClick={() => { setCavemanActive((v) => !v); sendToTerminal('/caveman\r'); setMoreMenuOpen(false); }} style={{
+                <button onClick={() => { setLeanActive((v) => !v); sendToTerminal('/caveman\r'); setMoreMenuOpen(false); }} style={{
                   all: 'unset', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8,
                   width: '100%', padding: '6px 10px', borderRadius: 4, fontSize: 11, fontFamily: fb,
-                  color: cavemanActive ? '#f0a050' : colors.text.secondary, transition: 'background .1s', boxSizing: 'border-box',
+                  color: leanActive ? '#4de6f0' : colors.text.secondary, transition: 'background .1s', boxSizing: 'border-box',
                 }}
                 onMouseEnter={(e) => { e.currentTarget.style.background = colors.bg.overlay; }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
-                  <span style={{ fontSize: 12, width: 12, textAlign: 'center' }}>{cavemanActive ? '🔥' : '🪨'}</span>
-                  {cavemanActive ? 'Caveman off' : 'Caveman mode'}
+                onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                title="Compress AI responses to save tokens (~30-50% on default; ultra goes higher).">
+                  <span style={{ fontSize: 12, width: 12, textAlign: 'center' }}>{leanActive ? '⚡' : '🍃'}</span>
+                  {leanActive ? 'Lean off' : 'Lean mode'}
                 </button>
               )}
 
