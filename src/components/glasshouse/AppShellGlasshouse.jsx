@@ -31,6 +31,7 @@ import OverviewGlasshouse from './OverviewGlasshouse';
 import PricingGlasshouse from './PricingGlasshouse';
 import SettingsGlasshouse from './SettingsGlasshouse';
 import AIChatGlasshouse from './AIChatGlasshouse';
+import TerminalsGlasshouse from './TerminalsGlasshouse';
 
 const FONT_DISP = 'var(--gh-font-display, "Outfit", sans-serif)';
 const FONT_TECH = 'var(--gh-font-techno, "Chakra Petch", sans-serif)';
@@ -110,11 +111,7 @@ export default function AppShellGlasshouse({ onLogout }) {
             {page === 'overview' && (
               <OverviewGlasshouse userName={userFirstName} onJump={(id) => setPage(id)} />
             )}
-            {page === 'terminals' && (
-              <div style={shell.terminals}>
-                <TerminalGrid dangerFlags={{}} onToggleDanger={() => {}} />
-              </div>
-            )}
+            {page === 'terminals' && <TerminalsGlasshouse />}
             {page === 'chat' && <AIChatGlasshouse />}
             {page === 'tasks' && (
               <div style={shell.tasks}>
