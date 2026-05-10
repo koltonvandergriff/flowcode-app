@@ -418,10 +418,11 @@ export default function TerminalPane({
   const [leanLevel, setLeanLevel] = useState('full');
   const [leanLevelsOpen, setLeanLevelsOpen] = useState(false);
   const leanInitRef = useRef(false);
-  // Pane activity state — 'idle' | 'busy' | 'complete'. Computed from the
-  // pty data stream: any byte = busy, 800ms of silence = idle. Busy → idle
-  // transition flashes 'complete' for 3s so users see recently-finished
-  // sessions at a glance.
+  // Pane activity state — 'idle' | 'busy' | 'complete'. Tied to user
+  // prompt submissions, NOT raw pty bytes. Pressing Enter (in xterm or in
+  // the input box) flips busy. After ~1.2s of pty silence we transition
+  // busy → complete (which auto-fades to idle after 3s). Mere clicks /
+  // cursor blinks / focus echoes no longer flicker the badge.
   const [activity, setActivity] = useState('idle');
   const lastDataAtRef = useRef(0);
   const completeTimerRef = useRef(null);
@@ -484,12 +485,13 @@ export default function TerminalPane({
   }, [provider, isApiProvider, settings?.leanDefault, settings?.cavemanDefault, settings?.leanLevel]);
 
   // Idle / busy / complete state machine. Polled at 300ms; cheap.
+  // Busy is set by markBusy() (Enter pressed). Once pty output goes quiet
+  // for 1.2s we declare the prompt done and flash 'complete' for 3s.
   useEffect(() => {
     const tick = setInterval(() => {
       const since = Date.now() - (lastDataAtRef.current || 0);
       setActivity(prev => {
-        if (prev === 'busy' && since > 800) {
-          // transition busy → complete (auto-fade to idle after 3s)
+        if (prev === 'busy' && since > 1200) {
           if (completeTimerRef.current) clearTimeout(completeTimerRef.current);
           completeTimerRef.current = setTimeout(() => setActivity('idle'), 3000);
           return 'complete';
@@ -501,6 +503,18 @@ export default function TerminalPane({
       clearInterval(tick);
       if (completeTimerRef.current) clearTimeout(completeTimerRef.current);
     };
+  }, []);
+
+  // Mark the pane as actively working on a user prompt. Resets the
+  // silence timer so the polling effect won't immediately demote us to
+  // 'complete' just because the prompt hasn't started producing output yet.
+  const markBusy = useCallback(() => {
+    lastDataAtRef.current = Date.now();
+    if (completeTimerRef.current) {
+      clearTimeout(completeTimerRef.current);
+      completeTimerRef.current = null;
+    }
+    setActivity('busy');
   }, []);
 
   const sendToTerminal = useCallback((text) => {
@@ -563,9 +577,10 @@ export default function TerminalPane({
         sendToTerminal('\r');
       }
     }
+    markBusy();
     setAttachedImages([]);
     if (listening) { toggleVoice(); voiceBaseRef.current = ''; }
-  }, [inputVal, attachedImages, sendToTerminal, isApiProvider, id, listening, toggleVoice]);
+  }, [inputVal, attachedImages, sendToTerminal, isApiProvider, id, listening, toggleVoice, markBusy]);
 
   const pickFolder = useCallback(async () => {
     const folder = await window.flowade?.dialog.pickFolder(currentCwd);
@@ -730,14 +745,11 @@ export default function TerminalPane({
           term.write(data);
           outputBufRef.current += data;
           if (outputBufRef.current.length > 3000) outputBufRef.current = outputBufRef.current.slice(-2000);
-          // Activity tracking: any byte = busy. Idle/complete transitions
-          // happen in the polling effect below.
+          // Track when output last arrived so the busy → complete silence
+          // detector can fire once a submitted prompt finishes streaming.
+          // Don't flip activity to 'busy' here — that would trigger on
+          // every cursor redraw, focus echo, and prompt repaint.
           lastDataAtRef.current = Date.now();
-          setActivity(a => (a === 'busy' ? a : 'busy'));
-          if (completeTimerRef.current) {
-            clearTimeout(completeTimerRef.current);
-            completeTimerRef.current = null;
-          }
 
           if (promptTimerRef.current) clearTimeout(promptTimerRef.current);
           promptTimerRef.current = setTimeout(() => {
@@ -833,7 +845,12 @@ export default function TerminalPane({
     term.onData((data) => {
       window.flowade?.terminal.write(id, data);
       inputLockedRef.current = true;
-      if (data === '\r' || data === '\n') inputLockedRef.current = false;
+      if (data === '\r' || data === '\n') {
+        inputLockedRef.current = false;
+        // User pressed Enter directly in xterm — mark the pane busy so
+        // the status badge tracks prompt activity, not just typing noise.
+        markBusy();
+      }
       setTermOptions(null);
       outputBufRef.current = '';
     });
