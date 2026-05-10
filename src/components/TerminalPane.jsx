@@ -5,6 +5,17 @@ import '@xterm/xterm/css/xterm.css';
 import { FONTS, PROVIDERS } from '../lib/constants';
 import { useTheme } from '../hooks/useTheme';
 import { isGlasshouseEnabled } from '../lib/glasshouseTheme';
+
+// Platform sniff for visual chrome that should match the host OS (e.g.,
+// macOS-style traffic-light dots). Falls back to navigator.platform when
+// the Electron-injected platform isn't available.
+function isMacPlatform() {
+  try {
+    if (typeof window !== 'undefined' && window.flowade?.platform === 'darwin') return true;
+    const p = (typeof navigator !== 'undefined' && navigator.platform) || '';
+    return /mac/i.test(p);
+  } catch { return false; }
+}
 import { ToastContext } from '../contexts/ToastContext';
 import { SettingsContext } from '../contexts/SettingsContext';
 import { useVoiceInput } from '../hooks/useVoiceInput';
@@ -885,18 +896,30 @@ export default function TerminalPane({
           cursor: 'grab', flexShrink: 0,
         }}
       >
-        {isGlasshouseEnabled() && (
-          <span style={{ display: 'inline-flex', gap: 5, marginRight: 4, flexShrink: 0 }}>
+        {/* Mac users get the macOS-style traffic-light cluster (decorative —
+            mirrors the platform's native window control aesthetic). Windows
+            and Linux keep the single status dot. Both platforms retain
+            every other control: rename, drag, provider badge, ctx %,
+            danger badge, preview toggle, mic, ..., close. */}
+        {isMacPlatform() && (
+          <span style={{ display: 'inline-flex', gap: 5, marginRight: 4, flexShrink: 0 }}
+            title={`Status: ${isDangerous ? 'danger' : status}`}
+          >
             <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#ff6b6b' }} />
             <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#ffe566' }} />
-            <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#4de6f0' }} />
+            <span style={{
+              width: 8, height: 8, borderRadius: '50%',
+              background: isDangerous ? colors.status.error : statusColor,
+              animation: isDangerous || status === 'connecting' ? 'pulse 1.5s infinite' : 'none',
+            }} />
           </span>
         )}
-        <span style={{
-          width: 7, height: 7, borderRadius: '50%', background: isDangerous ? colors.status.error : statusColor,
-          animation: isDangerous || status === 'connecting' ? 'pulse 1.5s infinite' : 'none', flexShrink: 0,
-          display: isGlasshouseEnabled() ? 'none' : 'inline-block',
-        }} />
+        {!isMacPlatform() && (
+          <span style={{
+            width: 7, height: 7, borderRadius: '50%', background: isDangerous ? colors.status.error : statusColor,
+            animation: isDangerous || status === 'connecting' ? 'pulse 1.5s infinite' : 'none', flexShrink: 0,
+          }} />
+        )}
 
         {isRenaming ? (
           <input
