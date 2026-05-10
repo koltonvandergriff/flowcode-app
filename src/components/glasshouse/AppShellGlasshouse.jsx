@@ -12,7 +12,6 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import ErrorBoundary from '../ErrorBoundary';
-import MemoryPanel from '../MemoryPanel';
 import SettingsPanel from '../SettingsPanel';
 import SubscriptionPanel from '../SubscriptionPanel';
 import HelpGuide from '../HelpGuide';
@@ -31,6 +30,7 @@ import SettingsGlasshouse from './SettingsGlasshouse';
 import AIChatGlasshouse from './AIChatGlasshouse';
 import TerminalsGlasshouse from './TerminalsGlasshouse';
 import TasksGlasshouse from './TasksGlasshouse';
+import MemoryGlasshouse from './MemoryGlasshouse';
 
 const FONT_DISP = 'var(--gh-font-display, "Outfit", sans-serif)';
 const FONT_TECH = 'var(--gh-font-techno, "Chakra Petch", sans-serif)';
@@ -128,9 +128,7 @@ export default function AppShellGlasshouse({ onLogout }) {
             )}
             {page === 'chat' && <AIChatGlasshouse />}
             {page === 'tasks' && <TasksGlasshouse onClose={() => setPage('overview')} />}
-            {page === 'memory' && (
-              <MemoryPanel open={true} embedded={true} onToggle={() => setPage('overview')} />
-            )}
+            {page === 'memory' && <MemoryGlasshouse onClose={() => setPage('overview')} />}
             {page === 'settings' && <SettingsGlasshouse onLogout={onLogout} />}
             {page === 'pricing'  && <PricingGlasshouse />}
           </ErrorBoundary>
