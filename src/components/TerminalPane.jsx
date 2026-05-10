@@ -406,10 +406,12 @@ export default function TerminalPane({
   const [attachedImages, setAttachedImages] = useState([]);
   const [attachMenuOpen, setAttachMenuOpen] = useState(false);
   const attachMenuRef = useRef(null);
-  // Internally still called "caveman" because the skill it toggles is
-  // /caveman in the user's Claude plugin folder. UI labels everywhere
-  // surface as "Lean" — that's the FlowADE-facing brand name.
+  // Lean mode — compresses Claude responses to save tokens. Triggers the
+  // /leanmode skill (alias of /caveman). Six levels of intensity exposed
+  // through a caret submenu in the pane's hamburger.
   const [leanActive, setLeanActive] = useState(false);
+  const [leanLevel, setLeanLevel] = useState('full');
+  const [leanLevelsOpen, setLeanLevelsOpen] = useState(false);
   const leanInitRef = useRef(false);
   const ctxAlertedRef = useRef(0);
   const unsubDataRef = useRef(null);
@@ -457,17 +459,17 @@ export default function TerminalPane({
     if (leanInitRef.current) return;
     if (provider !== 'claude' || isApiProvider) return;
     leanInitRef.current = true;
-    // settings.cavemanDefault is the legacy key — read it under the new
-    // settings.leanDefault first, fall back to legacy for existing prefs.
     const leanDefault = settings?.leanDefault ?? settings?.cavemanDefault;
+    const defaultLevel = settings?.leanLevel || 'full';
     if (leanDefault) {
       setLeanActive(true);
-      setTimeout(() => sendToTerminal('/caveman\r'), 1500);
+      setLeanLevel(defaultLevel);
+      setTimeout(() => sendToTerminal(`/leanmode ${defaultLevel}\r`), 1500);
     } else if (!localStorage.getItem('fc-lean-hint') && !localStorage.getItem('fc-caveman-hint')) {
       localStorage.setItem('fc-lean-hint', '1');
       setTimeout(() => addToast('Tip: Enable Lean mode to compress AI replies and trim tokens.', 'info'), 3000);
     }
-  }, [provider, isApiProvider, settings?.leanDefault, settings?.cavemanDefault]);
+  }, [provider, isApiProvider, settings?.leanDefault, settings?.cavemanDefault, settings?.leanLevel]);
 
   const sendToTerminal = useCallback((text) => {
     window.flowade?.terminal.write(id, text);
@@ -1062,17 +1064,83 @@ export default function TerminalPane({
               )}
 
               {provider === 'claude' && !isApiProvider && (
-                <button onClick={() => { setLeanActive((v) => !v); sendToTerminal('/caveman\r'); setMoreMenuOpen(false); }} style={{
-                  all: 'unset', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8,
-                  width: '100%', padding: '6px 10px', borderRadius: 4, fontSize: 11, fontFamily: fb,
-                  color: leanActive ? '#4de6f0' : colors.text.secondary, transition: 'background .1s', boxSizing: 'border-box',
-                }}
-                onMouseEnter={(e) => { e.currentTarget.style.background = colors.bg.overlay; }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
-                title="Compress AI responses to save tokens (~30-50% on default; ultra goes higher).">
-                  <span style={{ fontSize: 12, width: 12, textAlign: 'center' }}>{leanActive ? '⚡' : '🍃'}</span>
-                  {leanActive ? 'Lean off' : 'Lean mode'}
-                </button>
+                <>
+                  <div style={{ display: 'flex', alignItems: 'stretch' }}>
+                    <button onClick={() => {
+                      const next = !leanActive;
+                      setLeanActive(next);
+                      sendToTerminal(next ? `/leanmode ${leanLevel}\r` : '/leanmode off\r');
+                      setMoreMenuOpen(false);
+                    }} style={{
+                      all: 'unset', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8,
+                      flex: 1, padding: '6px 10px', borderRadius: 4, fontSize: 11, fontFamily: fb,
+                      color: leanActive ? '#4de6f0' : colors.text.secondary, transition: 'background .1s', boxSizing: 'border-box',
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = colors.bg.overlay; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                    title="Compress AI responses to save tokens. Click ▾ for intensity levels.">
+                      <span style={{ fontSize: 12, width: 12, textAlign: 'center' }}>{leanActive ? '⚡' : '🍃'}</span>
+                      {leanActive ? `Lean off (${leanLevel})` : 'Lean mode'}
+                    </button>
+                    <button onClick={(e) => { e.stopPropagation(); setLeanLevelsOpen(v => !v); }} style={{
+                      all: 'unset', cursor: 'pointer',
+                      padding: '6px 8px', borderRadius: 4,
+                      color: leanLevelsOpen ? '#4de6f0' : colors.text.dim,
+                      transition: 'background .1s', boxSizing: 'border-box',
+                      fontSize: 10, lineHeight: 1,
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = colors.bg.overlay; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                    title="Pick intensity"
+                    >{leanLevelsOpen ? '▴' : '▾'}</button>
+                  </div>
+                  {leanLevelsOpen && (
+                    <div style={{
+                      padding: '4px 6px 4px 22px',
+                      display: 'flex', flexDirection: 'column', gap: 1,
+                      borderLeft: `1px solid ${colors.border.subtle}`,
+                      marginLeft: 12,
+                    }}>
+                      {[
+                        { id: 'lite',          label: 'Lite',          hint: '15-25% off' },
+                        { id: 'full',          label: 'Full',          hint: '30-50% off · default' },
+                        { id: 'ultra',         label: 'Ultra',         hint: '50-65% off' },
+                        { id: 'wenyan-lite',   label: '文言 Lite',     hint: '60-75% off' },
+                        { id: 'wenyan-full',   label: '文言 Full',     hint: '75-85% off' },
+                        { id: 'wenyan-ultra',  label: '文言 Ultra',    hint: '80-90% off' },
+                      ].map(lvl => {
+                        const active = leanLevel === lvl.id && leanActive;
+                        return (
+                          <button
+                            key={lvl.id}
+                            onClick={() => {
+                              setLeanLevel(lvl.id);
+                              setLeanActive(true);
+                              sendToTerminal(`/leanmode ${lvl.id}\r`);
+                              setLeanLevelsOpen(false);
+                              setMoreMenuOpen(false);
+                            }}
+                            style={{
+                              all: 'unset', cursor: 'pointer',
+                              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                              padding: '4px 8px', borderRadius: 4,
+                              fontSize: 10.5, fontFamily: fb, fontWeight: active ? 700 : 400,
+                              color: active ? '#4de6f0' : colors.text.secondary,
+                              background: active ? 'rgba(77,230,240,0.08)' : 'transparent',
+                              transition: 'background .1s',
+                            }}
+                            onMouseEnter={(e) => { if (!active) e.currentTarget.style.background = colors.bg.overlay; }}
+                            onMouseLeave={(e) => { if (!active) e.currentTarget.style.background = 'transparent'; }}
+                            title={`Sends /leanmode ${lvl.id} to the terminal`}
+                          >
+                            <span>{lvl.label}</span>
+                            <span style={{ fontSize: 9, color: active ? '#4de6f0' : colors.text.dim, opacity: 0.85 }}>{lvl.hint}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </>
               )}
 
               <button onClick={() => { onToggleDanger?.(); setMoreMenuOpen(false); }} style={{
