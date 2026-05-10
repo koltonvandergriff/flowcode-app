@@ -112,6 +112,9 @@ export default function MassCloseDialogGlasshouse({ open, terminals, focusedId, 
           <div style={s.statRow}>
             <span style={s.statKeep}><span style={{ ...s.statDot, background: '#4de6f0' }} /> {stats.keep} keep</span>
             <span style={s.statClose}><span style={{ ...s.statDot, background: '#ff6b6b' }} /> {stats.close} close</span>
+            <span style={s.shortcutHint}>
+              <kbd style={s.kbd}>Esc</kbd> cancel · <kbd style={s.kbd}>⌘ ⏎</kbd> apply · <kbd style={s.kbd}>⌘ ⌥ W</kbd> close all but focused
+            </span>
           </div>
           <div style={s.actions}>
             <button onClick={onCancel} style={s.cancel}>Cancel</button>
@@ -281,7 +284,15 @@ const s = {
     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
     gap: 14, flexWrap: 'wrap',
   },
-  statRow: { display: 'flex', gap: 14, fontFamily: FONT_MONO, fontSize: 11 },
+  statRow: { display: 'flex', gap: 14, fontFamily: FONT_MONO, fontSize: 11, alignItems: 'center', flexWrap: 'wrap' },
+  shortcutHint: {
+    color: '#4a5168', fontSize: 10, letterSpacing: '0.04em', marginLeft: 8,
+  },
+  kbd: {
+    fontFamily: FONT_MONO, padding: '1px 6px', borderRadius: 4,
+    background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)',
+    color: '#94a3b8', fontSize: 10,
+  },
   statKeep:  { color: '#4de6f0', display: 'inline-flex', alignItems: 'center', gap: 6 },
   statClose: { color: '#ff6b6b', display: 'inline-flex', alignItems: 'center', gap: 6 },
   statDot: { width: 7, height: 7, borderRadius: '50%' },

@@ -134,6 +134,28 @@ export default function TerminalGrid({ dangerFlags, onToggleDanger }) {
   }, [updateWorkspace]);
 
   const [massCloseOpen, setMassCloseOpen] = useState(false);
+
+  // Cmd/Ctrl+Shift+W opens mass-close. Cmd/Ctrl+Alt+W closes everything but
+  // the focused pane in one shot (no dialog) — power-user shortcut.
+  useEffect(() => {
+    const onKey = (e) => {
+      const mod = e.metaKey || e.ctrlKey;
+      if (!mod) return;
+      if (e.shiftKey && (e.key === 'W' || e.key === 'w')) {
+        if (terminals.length >= 2) { e.preventDefault(); setMassCloseOpen(true); }
+      } else if (e.altKey && (e.key === 'W' || e.key === 'w')) {
+        if (terminals.length >= 2 && focusedId) {
+          e.preventDefault();
+          const ids = terminals.filter(t => t.id !== focusedId).map(t => t.id);
+          for (const id of ids) window.flowade?.terminal?.kill?.(id);
+          updateWorkspace(prev => ({ ...prev, terminals: (prev.terminals || []).filter(t => t.id === focusedId) }));
+        }
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [terminals, focusedId, updateWorkspace]);
+
   const massCloseApply = useCallback((idsToClose) => {
     for (const id of idsToClose) {
       window.flowade?.terminal?.kill?.(id);
@@ -375,7 +397,7 @@ export default function TerminalGrid({ dangerFlags, onToggleDanger }) {
             ))}
           </div>
           {terminals.length >= 3 && (
-            <button onClick={() => setMassCloseOpen(true)} title="Manage panes — close many at once" style={{
+            <button onClick={() => setMassCloseOpen(true)} title={`Manage panes — close many at once (${terminals.length} open)`} style={{
               all: 'unset', cursor: 'pointer', fontSize: 10, fontWeight: 700,
               padding: '5px 12px', borderRadius: 99, fontFamily: fc,
               letterSpacing: '0.04em',
@@ -393,40 +415,20 @@ export default function TerminalGrid({ dangerFlags, onToggleDanger }) {
             }}
             >Manage…</button>
           )}
-          <button onClick={addCustomTerminal} title="Open the wizard — pick provider, model, cwd, label" style={{
-            all: 'unset', cursor: 'pointer', fontSize: 10, fontWeight: 700,
-            padding: '5px 12px', borderRadius: 99, fontFamily: fc,
-            letterSpacing: '0.04em',
-            color: glass ? '#94a3b8' : colors.text.dim,
-            border: glass ? '1px solid rgba(255,255,255,0.13)' : `1px solid ${colors.border.subtle}`,
-            marginLeft: 6, transition: 'all .15s',
-          }}
-          onMouseEnter={(e) => {
-            if (glass) { e.currentTarget.style.borderColor = 'rgba(77,230,240,0.35)'; e.currentTarget.style.color = '#4de6f0'; }
-            else { e.currentTarget.style.color = colors.text.primary; }
-          }}
-          onMouseLeave={(e) => {
-            if (glass) { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.13)'; e.currentTarget.style.color = '#94a3b8'; }
-            else { e.currentTarget.style.color = colors.text.dim; }
-          }}
-          >+ Custom…</button>
-          <button onClick={addTerminal} title="Open with default provider + cwd from Settings" style={{
-            all: 'unset', cursor: 'pointer', fontSize: 10, fontWeight: 700,
-            padding: '5px 14px', borderRadius: 99, fontFamily: fc,
-            letterSpacing: '0.04em',
-            background: addBg, color: addCol,
-            marginLeft: 6, transition: 'all .15s',
-            boxShadow: addShadow,
-          }}
-          onMouseEnter={(e) => {
-            if (glass) { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 6px 18px rgba(77,230,240,0.35)'; }
-            else { e.currentTarget.style.background = (colors.accent.secondary || colors.accent.green) + '25'; }
-          }}
-          onMouseLeave={(e) => {
-            if (glass) { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = addShadow; }
-            else { e.currentTarget.style.background = (colors.accent.secondary || colors.accent.green) + '15'; }
-          }}
-          >+ Terminal</button>
+
+          <SpawnSplitButton
+            glass={glass}
+            colors={colors}
+            addBg={addBg}
+            addCol={addCol}
+            addShadow={addShadow}
+            fc={fc}
+            onQuickSpawn={addTerminal}
+            onCustom={addCustomTerminal}
+            onCloseOthers={() => setMassCloseOpen(true)}
+            onEditDefaults={() => window.dispatchEvent(new CustomEvent('flowade:openSettings', { detail: { section: 'newTerminal' } }))}
+            terminalCount={terminals.length}
+          />
         </div>
       </div>
 
@@ -441,4 +443,108 @@ export default function TerminalGrid({ dangerFlags, onToggleDanger }) {
       />
     </div>
   );
+}
+
+// ---------------------------------------------------------------------------
+// SpawnSplitButton — primary `+ Terminal` action with a caret dropdown for
+// alternates. Convention borrowed from VS Code's terminal launcher.
+// ---------------------------------------------------------------------------
+function SpawnSplitButton({ glass, colors, addBg, addCol, addShadow, fc, onQuickSpawn, onCustom, onCloseOthers, onEditDefaults, terminalCount }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', onDoc);
+    const onKey = (e) => { if (e.key === 'Escape') setOpen(false); };
+    window.addEventListener('keydown', onKey);
+    return () => { document.removeEventListener('mousedown', onDoc); window.removeEventListener('keydown', onKey); };
+  }, [open]);
+
+  const baseBtn = {
+    all: 'unset', cursor: 'pointer', fontSize: 10, fontWeight: 700,
+    fontFamily: fc, letterSpacing: '0.04em',
+    background: addBg, color: addCol,
+    transition: 'all 0.15s', boxShadow: addShadow,
+    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+  };
+
+  return (
+    <div ref={ref} style={{ position: 'relative', display: 'inline-flex', marginLeft: 6 }}>
+      <button onClick={onQuickSpawn} title="Open with default provider + cwd from Settings" style={{
+        ...baseBtn, padding: '5px 12px 5px 14px', borderRadius: '99px 0 0 99px',
+      }}
+      onMouseEnter={(e) => {
+        if (glass) { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 6px 18px rgba(77,230,240,0.35)'; }
+        else { e.currentTarget.style.background = (colors.accent.secondary || colors.accent.green) + '25'; }
+      }}
+      onMouseLeave={(e) => {
+        if (glass) { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = addShadow; }
+        else { e.currentTarget.style.background = (colors.accent.secondary || colors.accent.green) + '15'; }
+      }}
+      >+ Terminal</button>
+
+      <button onClick={() => setOpen(o => !o)} title="More spawn options" style={{
+        ...baseBtn, padding: '5px 9px', borderRadius: '0 99px 99px 0',
+        marginLeft: 1,
+        // Faint divider between the two halves of the split button.
+        boxShadow: glass
+          ? `inset 1px 0 0 rgba(0,0,0,0.18), ${addShadow}`
+          : `inset 1px 0 0 rgba(0,0,0,0.18)`,
+      }}
+      onMouseEnter={(e) => { if (glass) e.currentTarget.style.transform = 'translateY(-1px)'; }}
+      onMouseLeave={(e) => { if (glass) e.currentTarget.style.transform = 'translateY(0)'; }}
+      >▾</button>
+
+      {open && (
+        <div style={{
+          position: 'absolute', top: 'calc(100% + 6px)', right: 0,
+          minWidth: 240, padding: 6,
+          background: 'rgba(10, 14, 24, 0.95)',
+          border: '1px solid rgba(77,230,240,0.18)',
+          borderRadius: 10,
+          backdropFilter: 'blur(20px) saturate(1.2)',
+          boxShadow: '0 12px 40px rgba(0,0,0,0.5), 0 0 0 1px rgba(77,230,240,0.05)',
+          zIndex: 50,
+          fontFamily: fc,
+        }}>
+          <DropItem onClick={() => { setOpen(false); onQuickSpawn(); }} icon="▶" kbd="⌘ T">Quick spawn (defaults)</DropItem>
+          <Divider />
+          <DropItem onClick={() => { setOpen(false); onCustom(); }} icon="✦" cy>Custom… (wizard)</DropItem>
+          <DropItem onClick={() => { setOpen(false); onEditDefaults(); }} icon="⚙">Edit default provider / cwd</DropItem>
+          {terminalCount >= 3 && (
+            <>
+              <Divider />
+              <DropItem onClick={() => { setOpen(false); onCloseOthers(); }} icon="⨯" red>Close panes…</DropItem>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DropItem({ onClick, icon, kbd, cy, red, children }) {
+  return (
+    <button onClick={onClick} style={{
+      all: 'unset', cursor: 'pointer',
+      display: 'grid', gridTemplateColumns: '20px 1fr auto', gap: 10,
+      alignItems: 'center', width: '100%', boxSizing: 'border-box',
+      padding: '8px 10px', borderRadius: 6,
+      fontSize: 12, color: cy ? '#4de6f0' : red ? '#ff6b6b' : '#f1f5f9',
+      transition: 'background 0.12s',
+    }}
+    onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(77,230,240,0.08)'}
+    onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+    >
+      <span style={{ fontSize: 12, color: cy ? '#4de6f0' : red ? '#ff6b6b' : '#94a3b8', textAlign: 'center' }}>{icon}</span>
+      <span>{children}</span>
+      {kbd && <span style={{ fontSize: 10, color: '#4a5168', letterSpacing: '0.05em' }}>{kbd}</span>}
+    </button>
+  );
+}
+
+function Divider() {
+  return <div style={{ height: 1, background: 'rgba(255,255,255,0.06)', margin: '4px 4px' }} />;
 }
