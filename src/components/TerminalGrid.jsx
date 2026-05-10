@@ -7,6 +7,7 @@ import { SettingsContext } from '../contexts/SettingsContext';
 import TerminalPane from './TerminalPane';
 import ResizeHandle from './ResizeHandle';
 import TerminalWizardGlasshouse from './glasshouse/TerminalWizardGlasshouse';
+import MassCloseDialogGlasshouse from './glasshouse/MassCloseDialogGlasshouse';
 
 const fc = FONTS.mono;
 const fb = FONTS.body;
@@ -131,6 +132,22 @@ export default function TerminalGrid({ dangerFlags, onToggleDanger }) {
       terminals: (prev.terminals || []).filter((t) => t.id !== id),
     }));
   }, [updateWorkspace]);
+
+  const [massCloseOpen, setMassCloseOpen] = useState(false);
+  const massCloseApply = useCallback((idsToClose) => {
+    for (const id of idsToClose) {
+      window.flowade?.terminal?.kill?.(id);
+    }
+    updateWorkspace((prev) => ({
+      ...prev,
+      terminals: (prev.terminals || []).filter((t) => !idsToClose.includes(t.id)),
+    }));
+    if (idsToClose.includes(focusedId)) {
+      const next = (terminals || []).find(t => !idsToClose.includes(t.id));
+      setFocusedId(next?.id || null);
+    }
+    setMassCloseOpen(false);
+  }, [updateWorkspace, focusedId, terminals]);
 
   const removeTerminal = useCallback((id) => {
     window.flowade?.terminal.kill(id);
@@ -357,6 +374,25 @@ export default function TerminalGrid({ dangerFlags, onToggleDanger }) {
               }}>{l.label}</button>
             ))}
           </div>
+          {terminals.length >= 3 && (
+            <button onClick={() => setMassCloseOpen(true)} title="Manage panes — close many at once" style={{
+              all: 'unset', cursor: 'pointer', fontSize: 10, fontWeight: 700,
+              padding: '5px 12px', borderRadius: 99, fontFamily: fc,
+              letterSpacing: '0.04em',
+              color: glass ? '#94a3b8' : colors.text.dim,
+              border: glass ? '1px solid rgba(255,255,255,0.13)' : `1px solid ${colors.border.subtle}`,
+              marginLeft: 6, transition: 'all .15s',
+            }}
+            onMouseEnter={(e) => {
+              if (glass) { e.currentTarget.style.borderColor = 'rgba(255,107,107,0.4)'; e.currentTarget.style.color = '#ff6b6b'; }
+              else { e.currentTarget.style.color = colors.status.error; }
+            }}
+            onMouseLeave={(e) => {
+              if (glass) { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.13)'; e.currentTarget.style.color = '#94a3b8'; }
+              else { e.currentTarget.style.color = colors.text.dim; }
+            }}
+            >Manage…</button>
+          )}
           <button onClick={addCustomTerminal} title="Open the wizard — pick provider, model, cwd, label" style={{
             all: 'unset', cursor: 'pointer', fontSize: 10, fontWeight: 700,
             padding: '5px 12px', borderRadius: 99, fontFamily: fc,
@@ -395,6 +431,14 @@ export default function TerminalGrid({ dangerFlags, onToggleDanger }) {
       </div>
 
       {renderGrid()}
+
+      <MassCloseDialogGlasshouse
+        open={massCloseOpen}
+        terminals={terminals}
+        focusedId={focusedId}
+        onCancel={() => setMassCloseOpen(false)}
+        onApply={massCloseApply}
+      />
     </div>
   );
 }
