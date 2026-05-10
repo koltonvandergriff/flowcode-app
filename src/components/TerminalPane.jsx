@@ -4,6 +4,7 @@ import { FitAddon } from '@xterm/addon-fit';
 import '@xterm/xterm/css/xterm.css';
 import { FONTS, PROVIDERS } from '../lib/constants';
 import { useTheme } from '../hooks/useTheme';
+import { isGlasshouseEnabled } from '../lib/glasshouseTheme';
 import { ToastContext } from '../contexts/ToastContext';
 import { SettingsContext } from '../contexts/SettingsContext';
 import { useVoiceInput } from '../hooks/useVoiceInput';
@@ -836,6 +837,15 @@ export default function TerminalPane({
   }, [isApiProvider, onDrop]);
 
   const accentColor = colors.accent.primary || colors.accent.purple;
+  // Glasshouse swaps the pane chrome — cyan focus rim, glassy surface,
+  // softer drop shadow. Internal terminal layer is untouched.
+  const _glass = isGlasshouseEnabled();
+  const _glassAccent = '#4de6f0';
+  const _glassBorder = isDangerous
+    ? 'rgba(255, 107, 107, 0.5)'
+    : isFocused
+      ? 'rgba(77, 230, 240, 0.45)'
+      : 'rgba(255, 255, 255, 0.07)';
 
   return (
     <div
@@ -843,17 +853,23 @@ export default function TerminalPane({
       onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); onDragOver?.(); }}
       onDrop={handleOuterDrop}
       style={{
-        background: colors.bg.surface,
-        backgroundImage: isFocused ? (colors.gradient?.surface || 'none') : 'none',
-        border: `1px solid ${borderColor}`,
-        borderRadius: 10, display: 'flex', flexDirection: 'column',
+        background: _glass ? 'rgba(8, 8, 18, 0.55)' : colors.bg.surface,
+        backgroundImage: _glass ? 'none' : (isFocused ? (colors.gradient?.surface || 'none') : 'none'),
+        border: `1px solid ${_glass ? _glassBorder : borderColor}`,
+        borderRadius: _glass ? 12 : 10,
+        display: 'flex', flexDirection: 'column',
         overflow: 'hidden', minHeight: 0, flex: 1,
         opacity: isDragging ? 0.4 : 1,
+        backdropFilter: _glass ? 'blur(14px) saturate(1.1)' : undefined,
         boxShadow: isDangerous
-          ? `0 0 20px rgba(255, 92, 106, 0.06), 0 2px 8px rgba(0,0,0,.4)`
-          : isFocused
-          ? `0 0 0 1px ${accentColor}15, 0 4px 20px rgba(0,0,0,.3), 0 0 40px ${accentColor}06`
-          : '0 1px 4px rgba(0,0,0,.2)',
+          ? `0 0 20px rgba(255, 107, 107, 0.12), 0 2px 8px rgba(0,0,0,.4)`
+          : _glass
+            ? (isFocused
+                ? `0 0 0 1px rgba(77,230,240,0.25), 0 12px 36px rgba(0,0,0,0.5), 0 0 36px rgba(77,230,240,0.08)`
+                : `inset 0 1px 0 rgba(255,255,255,0.04), 0 8px 24px rgba(0,0,0,0.4)`)
+            : isFocused
+              ? `0 0 0 1px ${accentColor}15, 0 4px 20px rgba(0,0,0,.3), 0 0 40px ${accentColor}06`
+              : '0 1px 4px rgba(0,0,0,.2)',
         transition: 'border-color .3s ease, opacity .2s ease, box-shadow .3s ease, background-image .5s ease',
       }}
     >
@@ -869,9 +885,17 @@ export default function TerminalPane({
           cursor: 'grab', flexShrink: 0,
         }}
       >
+        {isGlasshouseEnabled() && (
+          <span style={{ display: 'inline-flex', gap: 5, marginRight: 4, flexShrink: 0 }}>
+            <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#ff6b6b' }} />
+            <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#ffe566' }} />
+            <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#4de6f0' }} />
+          </span>
+        )}
         <span style={{
           width: 7, height: 7, borderRadius: '50%', background: isDangerous ? colors.status.error : statusColor,
           animation: isDangerous || status === 'connecting' ? 'pulse 1.5s infinite' : 'none', flexShrink: 0,
+          display: isGlasshouseEnabled() ? 'none' : 'inline-block',
         }} />
 
         {isRenaming ? (

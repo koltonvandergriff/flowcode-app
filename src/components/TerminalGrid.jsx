@@ -1,6 +1,7 @@
 import { useState, useCallback, useContext, useEffect, useRef } from 'react';
 import { FONTS, LAYOUTS } from '../lib/constants';
 import { useTheme } from '../hooks/useTheme';
+import { isGlasshouseEnabled } from '../lib/glasshouseTheme';
 import { WorkspaceContext } from '../contexts/WorkspaceContext';
 import { SettingsContext } from '../contexts/SettingsContext';
 import TerminalPane from './TerminalPane';
@@ -234,50 +235,84 @@ export default function TerminalGrid({ dangerFlags, onToggleDanger }) {
     );
   };
 
+  // Glasshouse swaps the toolbar palette + provides a cyan-tinted glass
+  // background. All controls + behavior unchanged; visual only.
+  const glass = isGlasshouseEnabled();
+  const cy = '#4de6f0';
+  const cyDeep = '#1aa9bc';
+  const tbBg     = glass ? 'rgba(8, 8, 18, 0.55)'                    : (colors.bg.glass || colors.bg.raised);
+  const tbBorder = glass ? '1px solid rgba(77,230,240,0.07)'         : `1px solid ${colors.border.subtle}`;
+  const labelCol = glass ? '#94a3b8'                                 : colors.text.secondary;
+  const countBg  = glass ? 'rgba(77,230,240,0.1)'                    : (colors.accent.primary || colors.accent.green) + '15';
+  const countCol = glass ? cy                                        : (colors.accent.primary || colors.accent.green);
+  const layBg    = glass ? 'rgba(0,0,0,0.4)'                         : colors.bg.overlay + '80';
+  const layActBg = glass ? 'rgba(77,230,240,0.18)'                   : (colors.accent.primary || colors.accent.purple) + '20';
+  const layActCol= glass ? cy                                        : (colors.accent.primary || colors.accent.purple);
+  const layCol   = glass ? '#94a3b8'                                 : colors.text.dim;
+  const addBg    = glass ? 'linear-gradient(135deg, ' + cy + ', ' + cyDeep + ')' : (colors.accent.secondary || colors.accent.green) + '15';
+  const addCol   = glass ? '#001014'                                 : (colors.accent.secondary || colors.accent.green);
+  const addShadow= glass ? '0 4px 14px rgba(77,230,240,0.25)'        : 'none';
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 3, flex: 1, minHeight: 0 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flex: 1, minHeight: 0 }}>
       {/* Toolbar */}
       <div className="fc-glass" style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '5px 12px', background: colors.bg.glass || colors.bg.raised, borderRadius: 8,
-        border: `1px solid ${colors.border.subtle}`,
+        padding: '6px 12px', background: tbBg, borderRadius: 8,
+        border: tbBorder,
+        backdropFilter: glass ? 'blur(14px)' : undefined,
+        boxShadow: glass ? 'inset 0 1px 0 rgba(255,255,255,0.04)' : undefined,
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ fontSize: 11, fontWeight: 600, color: colors.text.secondary, letterSpacing: 0.3, fontFamily: fb }}>
+          <span style={{
+            fontSize: 11, fontWeight: 600,
+            color: labelCol, letterSpacing: glass ? '0.18em' : 0.3,
+            textTransform: glass ? 'uppercase' : 'none',
+            fontFamily: glass ? 'var(--gh-font-techno, "Chakra Petch", sans-serif)' : fb,
+          }}>
             Terminals
           </span>
           <span style={{
-            fontSize: 9, fontWeight: 600, padding: '1px 6px', borderRadius: 10,
-            background: (colors.accent.primary || colors.accent.green) + '15',
-            color: colors.accent.primary || colors.accent.green, fontFamily: fc,
+            fontSize: 9, fontWeight: 700, padding: '2px 7px', borderRadius: 99,
+            background: countBg, color: countCol, fontFamily: fc,
           }}>
             {terminals.length}
           </span>
         </div>
         <div style={{ display: 'flex', gap: 1, alignItems: 'center' }}>
           <div style={{
-            display: 'flex', gap: 1, padding: 2, borderRadius: 6,
-            background: colors.bg.overlay + '80',
+            display: 'flex', gap: 1, padding: 2, borderRadius: glass ? 99 : 6,
+            background: layBg,
+            border: glass ? '1px solid rgba(255,255,255,0.13)' : 'none',
           }}>
             {LAYOUTS.map((l) => (
               <button key={l.id} onClick={() => setLayout(l.id)} style={{
-                all: 'unset', cursor: 'pointer', fontSize: 10, fontWeight: 600,
-                padding: '3px 8px', borderRadius: 4, fontFamily: fc,
-                background: layout === l.id ? (colors.accent.primary || colors.accent.purple) + '20' : 'transparent',
-                color: layout === l.id ? (colors.accent.primary || colors.accent.purple) : colors.text.dim,
+                all: 'unset', cursor: 'pointer', fontSize: 10, fontWeight: 700,
+                padding: '4px 10px', borderRadius: glass ? 99 : 4, fontFamily: fc,
+                letterSpacing: '0.04em',
+                background: layout === l.id ? layActBg : 'transparent',
+                color: layout === l.id ? layActCol : layCol,
+                boxShadow: glass && layout === l.id ? '0 0 12px rgba(77,230,240,0.25)' : 'none',
                 transition: 'all .15s ease',
               }}>{l.label}</button>
             ))}
           </div>
           <button onClick={addTerminal} style={{
-            all: 'unset', cursor: 'pointer', fontSize: 10, fontWeight: 600,
-            padding: '4px 12px', borderRadius: 6, fontFamily: fb,
-            background: (colors.accent.secondary || colors.accent.green) + '15',
-            color: colors.accent.secondary || colors.accent.green,
+            all: 'unset', cursor: 'pointer', fontSize: 10, fontWeight: 700,
+            padding: '5px 14px', borderRadius: 99, fontFamily: fc,
+            letterSpacing: '0.04em',
+            background: addBg, color: addCol,
             marginLeft: 6, transition: 'all .15s',
+            boxShadow: addShadow,
           }}
-          onMouseEnter={(e) => { e.currentTarget.style.background = (colors.accent.secondary || colors.accent.green) + '25'; }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = (colors.accent.secondary || colors.accent.green) + '15'; }}
+          onMouseEnter={(e) => {
+            if (glass) { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 6px 18px rgba(77,230,240,0.35)'; }
+            else { e.currentTarget.style.background = (colors.accent.secondary || colors.accent.green) + '25'; }
+          }}
+          onMouseLeave={(e) => {
+            if (glass) { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = addShadow; }
+            else { e.currentTarget.style.background = (colors.accent.secondary || colors.accent.green) + '15'; }
+          }}
           >+ Terminal</button>
         </div>
       </div>
