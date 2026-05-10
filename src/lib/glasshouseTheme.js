@@ -1,28 +1,13 @@
-// Glasshouse theme toggle. Sets data-theme on <body> based on user pref so
-// CSS in `src/styles/tokens.css` activates the new chrome (scanlines, fonts,
-// background gradients). Existing palette system in `themes.js` keeps doing
-// its thing; the two layers don't conflict because tokens.css uses a `--gh-*`
-// namespace and only paints body chrome.
+// Glasshouse is now the default (and only) theme. The previous classic shell
+// has been retired; this module stays only so call sites that imported it
+// (App.jsx auth gate, terminal pane chrome, sidenav) keep compiling.
 //
-// Default: classic theme. Users opt in via Settings → Appearance → "Glasshouse
-// (preview)" toggle, or via the dev shortcut `localStorage.gh_theme = "1"`.
-
-const STORAGE_KEY = 'flowade.theme.glasshouse';
+// `applyTheme(true)` is invoked at boot from main.jsx so `body[data-theme]
+// = "glasshouse"` is always set, which keeps the tokens.css scanline + font
+// rules active.
 
 export function isGlasshouseEnabled() {
-  try {
-    return localStorage.getItem(STORAGE_KEY) === '1';
-  } catch {
-    return false;
-  }
-}
-
-export function setGlasshouseEnabled(on) {
-  try {
-    if (on) localStorage.setItem(STORAGE_KEY, '1');
-    else localStorage.removeItem(STORAGE_KEY);
-  } catch { /* ignore */ }
-  applyTheme(on);
+  return true;
 }
 
 export function applyTheme(on) {
@@ -34,5 +19,5 @@ export function applyTheme(on) {
 }
 
 export function initGlasshouseTheme() {
-  applyTheme(isGlasshouseEnabled());
+  applyTheme(true);
 }

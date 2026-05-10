@@ -1,6 +1,6 @@
 import { useRef, useEffect, useCallback } from 'react';
 
-const TYPE_COLORS = {
+const DEFAULT_TYPE_COLORS = {
   fact: '#4af0c0',
   decision: '#a78bfa',
   context: '#f59e0b',
@@ -17,14 +17,15 @@ function hashPosition(str, seed = 0) {
   return (h & 0x7fffffff) / 0x7fffffff;
 }
 
-function colorForMemory(memory, categoryColors) {
+function colorForMemory(memory, categoryColors, typeColors) {
   if (memory.categoryId && categoryColors?.has(memory.categoryId)) {
     return categoryColors.get(memory.categoryId);
   }
-  return TYPE_COLORS[memory.type] || TYPE_COLORS.note;
+  const palette = typeColors || DEFAULT_TYPE_COLORS;
+  return palette[memory.type] || palette.note;
 }
 
-function createStar(memory, index, total, categoryColors) {
+function createStar(memory, index, total, categoryColors, typeColors) {
   const angle = (index / Math.max(1, total)) * Math.PI * 2 + hashPosition(memory.id, 7) * 0.5;
   const radius = 0.32 + hashPosition(memory.id, 11) * 0.06;
   const age = (Date.now() - (memory.updatedAt || memory.createdAt || Date.now())) / (1000 * 60 * 60 * 24);
@@ -36,7 +37,7 @@ function createStar(memory, index, total, categoryColors) {
     fixed: false, // true while user is dragging this node
     degree: 0,
     baseRadius: 2.6 + recency * 3.4,
-    color: colorForMemory(memory, categoryColors),
+    color: colorForMemory(memory, categoryColors, typeColors),
     opacity: 1,
     targetOpacity: 1,
     memory,
@@ -161,7 +162,7 @@ function buildNeighborMap(lines) {
   return map;
 }
 
-export default function MemoryCosmos({ entries, search, onSelect, onHover, hoveredId, selectedId, categoryColors }) {
+export default function MemoryCosmos({ entries, search, onSelect, onHover, hoveredId, selectedId, categoryColors, typeColors }) {
   const canvasRef = useRef(null);
   const starsRef = useRef([]);
   const linesRef = useRef([]);
@@ -190,10 +191,10 @@ export default function MemoryCosmos({ entries, search, onSelect, onHover, hover
         existing.memory = m;
         // Reflect any new category assignment / color update without rebuilding
         // the star (preserves position so the layout doesn't reseed).
-        existing.color = colorForMemory(m, categoryColors);
+        existing.color = colorForMemory(m, categoryColors, typeColors);
         return existing;
       }
-      return createStar(m, i, entries.length, categoryColors);
+      return createStar(m, i, entries.length, categoryColors, typeColors);
     });
     starsRef.current = stars;
 
@@ -220,7 +221,7 @@ export default function MemoryCosmos({ entries, search, onSelect, onHover, hover
       // applies a fresh viewport transform.
       pendingFitRef.current = true;
     }
-  }, [entries, categoryColors]);
+  }, [entries, categoryColors, typeColors]);
 
   const fitToBounds = useCallback(() => {
     const canvas = canvasRef.current;

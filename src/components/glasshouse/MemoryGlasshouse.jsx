@@ -19,12 +19,15 @@ const FONT_DISP = 'var(--gh-font-display, "Outfit", sans-serif)';
 const FONT_TECH = 'var(--gh-font-techno, "Chakra Petch", sans-serif)';
 const FONT_MONO = 'var(--gh-font-mono, "JetBrains Mono", monospace)';
 
+// Cyan-shifted palette for the glasshouse aesthetic. Passed through to
+// MemoryCosmos as `typeColors` so unclassified entries fall back to a tight
+// cyan family instead of the legacy green/orange/purple TYPE_COLORS.
 const TYPE_COLORS = {
   fact:      '#4de6f0',
   decision:  '#a8a4c8',
   context:   '#f59e0b',
   reference: '#88f0d8',
-  note:      '#94a3b8',
+  note:      '#6b7a90',
 };
 const TYPE_LABEL = {
   fact: 'Fact', decision: 'Decision', context: 'Context',
@@ -272,6 +275,7 @@ export default function MemoryGlasshouse() {
               hoveredId={hoveredId}
               selectedId={selectedId}
               categoryColors={categoryColors}
+              typeColors={TYPE_COLORS}
             />
             <div style={s.toolbar}>
               <span style={s.pillCy}>
@@ -299,10 +303,12 @@ export default function MemoryGlasshouse() {
         <aside style={s.detailCol}>
           {!selected ? (
             <div style={s.detailEmpty}>
-              <div style={s.detailEmptyMark}>✦</div>
-              <div style={s.detailEmptyTitle}>Pick a memory</div>
-              <div style={s.detailEmptyBody}>
-                Click a node in the cosmos or search above. Selected memory shows here with its tags, content, and backlinks.
+              <div style={s.detailEmptyInner}>
+                <div style={s.detailEmptyMark}>✦</div>
+                <div style={s.detailEmptyTitle}>Pick a memory</div>
+                <div style={s.detailEmptyBody}>
+                  Click a node in the cosmos or search above. Selected memory shows here with its tags, content, and backlinks.
+                </div>
               </div>
             </div>
           ) : (
@@ -529,8 +535,12 @@ const s = {
     display: 'flex', flexDirection: 'column',
   },
   detailEmpty: {
-    flex: 1, display: 'grid', placeItems: 'center', textAlign: 'center',
-    padding: 24,
+    flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
+    textAlign: 'center', padding: 24,
+  },
+  detailEmptyInner: {
+    display: 'flex', flexDirection: 'column', alignItems: 'center',
+    gap: 8, maxWidth: 240,
   },
   detailEmptyMark: {
     fontSize: 28, color: '#4de6f0', opacity: 0.5,

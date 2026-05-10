@@ -13,7 +13,6 @@ const SECTIONS = [
   { id: 'account',     label: 'Account' },
   { id: 'keys',        label: 'API Keys' },
   { id: 'memory',      label: 'Memory' },
-  { id: 'appearance',  label: 'Appearance' },
   { id: 'keybindings', label: 'Keybindings' },
   { id: 'notify',      label: 'Notifications' },
   { id: 'integrations', label: 'Integrations' },
@@ -55,7 +54,6 @@ export default function SettingsGlasshouse({ onLogout }) {
           {section === 'account'      && <AccountSection />}
           {section === 'keys'         && <KeysSection />}
           {section === 'memory'       && <MemorySection />}
-          {section === 'appearance'   && <AppearanceSection />}
           {section === 'keybindings'  && <KeybindingsSection />}
           {section === 'notify'       && <NotificationsSection />}
           {section === 'integrations' && <IntegrationsSection />}
@@ -163,33 +161,6 @@ function MemorySection() {
       <Toggle label="Auto-categorize on create" desc="Slot every new memory into a leaf via Haiku 4.5." on={auto} onChange={(v) => { setAuto(v); writeBool('flowade.mem.autoCategorize', v); }} />
       <Toggle label="Auto-embed on create" desc="Compute vector for semantic search." on={embed} onChange={(v) => { setEmbed(v); writeBool('flowade.mem.autoEmbed', v); }} />
       <Toggle label="Sync to mobile" desc="Real-time cross-device updates." on={sync} onChange={(v) => { setSync(v); writeBool('flowade.mem.syncMobile', v); }} />
-    </>
-  );
-}
-
-function AppearanceSection() {
-  const [glass, setGlass] = useState(() => localStorage.getItem('flowade.theme.glasshouse') === '1');
-  const apply = (v) => {
-    setGlass(v);
-    try {
-      if (v) localStorage.setItem('flowade.theme.glasshouse', '1');
-      else localStorage.removeItem('flowade.theme.glasshouse');
-      document.body.dataset.theme = v ? 'glasshouse' : '';
-      // Reload to remount auth tree under the right shell.
-      setTimeout(() => location.reload(), 100);
-    } catch {}
-  };
-
-  return (
-    <>
-      <h2 style={s.cardH2}>Appearance</h2>
-      <p style={s.cardSub}>Visual theme. Glasshouse is the new layout you're using right now.</p>
-      <Toggle
-        label="Glasshouse theme (preview)"
-        desc="Cyan + glass aesthetic, single-pane navigation, mockup-driven layout. Toggle off to return to the classic terminal-grid shell."
-        on={glass}
-        onChange={apply}
-      />
     </>
   );
 }
