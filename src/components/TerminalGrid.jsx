@@ -23,7 +23,41 @@ export default function TerminalGrid({ dangerFlags, onToggleDanger }) {
   const gridRef = useRef(null);
 
   const layout = activeData?.layout || '2x1';
+  const workspaceName = activeData?.name || 'Workspace';
   const terminals = activeData?.terminals || [];
+
+  // Compose display labels as Workspace:Provider:SessionName with a :N
+  // suffix only when the same combo appears more than once. sessionName
+  // is the user-editable piece; legacy records stored their full label
+  // under `t.label` (e.g. "Session 1") so we backfill from there when
+  // present and leave the field stable otherwise.
+  const composed = (() => {
+    const baseFor = (t) => {
+      const session = (t.sessionName ?? t.label ?? 'Session').trim() || 'Session';
+      return { session, provider: t.provider || 'claude' };
+    };
+    const keyCounts = new Map();
+    for (const t of terminals) {
+      const { session, provider } = baseFor(t);
+      const k = `${provider}::${session}`;
+      keyCounts.set(k, (keyCounts.get(k) || 0) + 1);
+    }
+    const runningIdx = new Map();
+    const labels = new Map(); // id -> { display, session }
+    for (const t of terminals) {
+      const { session, provider } = baseFor(t);
+      const k = `${provider}::${session}`;
+      const total = keyCounts.get(k) || 1;
+      const idx = (runningIdx.get(k) || 0) + 1;
+      runningIdx.set(k, idx);
+      const suffix = total > 1 ? `:${idx}` : '';
+      labels.set(t.id, {
+        display: `${workspaceName}:${provider}:${session}${suffix}`,
+        session,
+      });
+    }
+    return labels;
+  })();
   const layoutDef = LAYOUTS.find((l) => l.id === layout) || LAYOUTS[1];
   const visible = terminals.slice(0, layoutDef.max);
 
@@ -56,7 +90,7 @@ export default function TerminalGrid({ dangerFlags, onToggleDanger }) {
       updateWorkspace((prev) => {
         const newTerminals = room.terminals.map((t, i) => ({
           id: `term-${Date.now()}-${i}`,
-          label: t.label,
+          sessionName: t.label || t.sessionName || 'Session',
           provider: t.provider,
           cwd: settings?.defaultCwd || undefined,
         }));
@@ -86,14 +120,13 @@ export default function TerminalGrid({ dangerFlags, onToggleDanger }) {
 
   const addTerminal = useCallback(() => {
     const id = `term-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`;
-    const num = terminals.length + 1;
     const provider = settings?.defaultProvider || 'claude';
     const cwd = settings?.defaultCwd || undefined;
     updateWorkspace((prev) => ({
       ...prev,
-      terminals: [...(prev.terminals || []), { id, label: `Session ${num}`, provider, cwd }],
+      terminals: [...(prev.terminals || []), { id, sessionName: 'Session', provider, cwd }],
     }));
-  }, [terminals, updateWorkspace, settings]);
+  }, [updateWorkspace, settings]);
 
   // Spawn a pane in `pending` state — pane renders the wizard inline until
   // the user commits. On commit the pending flag clears and the existing
@@ -102,7 +135,7 @@ export default function TerminalGrid({ dangerFlags, onToggleDanger }) {
     const id = `term-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`;
     updateWorkspace((prev) => ({
       ...prev,
-      terminals: [...(prev.terminals || []), { id, label: 'New terminal', pending: true }],
+      terminals: [...(prev.terminals || []), { id, sessionName: 'Session', pending: true }],
     }));
   }, [updateWorkspace]);
 
@@ -111,7 +144,7 @@ export default function TerminalGrid({ dangerFlags, onToggleDanger }) {
       ...prev,
       terminals: (prev.terminals || []).map((t) => t.id === id ? {
         id,
-        label: config.label || t.label,
+        sessionName: config.label || t.sessionName || t.label || 'Session',
         provider: config.provider,
         model: config.model,
         cwd: config.cwd,
@@ -201,10 +234,11 @@ export default function TerminalGrid({ dangerFlags, onToggleDanger }) {
     }
   }, [updateWorkspace, focusedId, visible]);
 
-  const renameTerminal = useCallback((id, label) => {
+  const renameTerminal = useCallback((id, sessionName) => {
+    const clean = (sessionName || 'Session').trim() || 'Session';
     updateWorkspace((prev) => ({
       ...prev,
-      terminals: (prev.terminals || []).map((t) => t.id === id ? { ...t, label } : t),
+      terminals: (prev.terminals || []).map((t) => t.id === id ? { ...t, sessionName: clean, label: undefined } : t),
     }));
   }, [updateWorkspace]);
 
@@ -277,7 +311,8 @@ export default function TerminalGrid({ dangerFlags, onToggleDanger }) {
       ) : (
         <TerminalPane
           id={t.id}
-          label={t.label}
+          label={composed.get(t.id)?.display || t.label || 'Terminal'}
+          sessionName={composed.get(t.id)?.session || t.sessionName || t.label || 'Session'}
           provider={t.provider}
           cwd={t.cwd}
           fontSize={settings?.fontSize}

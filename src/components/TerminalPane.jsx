@@ -378,7 +378,7 @@ function ApiChatView({ id, provider, providerDef, inputVal, setInputVal, inputRe
 // ===========================================================================
 
 export default function TerminalPane({
-  id, label, provider = 'claude', cwd, fontSize = 13,
+  id, label, sessionName, provider = 'claude', cwd, fontSize = 13,
   isFocused, onClose, onCloseAllAfter, panesAfter = 0,
   onRename, onCwdChange,
   isDangerous, onToggleDanger,
@@ -397,7 +397,10 @@ export default function TerminalPane({
   const [termOptions, setTermOptions] = useState(null);
   const [ctxPercent, setCtxPercent] = useState(null);
   const [isRenaming, setIsRenaming] = useState(false);
-  const [renameVal, setRenameVal] = useState(label);
+  // Rename editor edits ONLY the user-controllable sessionName piece —
+  // the workspace + provider prefix in the display label is composed
+  // upstream and shouldn't appear in the edit field.
+  const [renameVal, setRenameVal] = useState(sessionName || label);
   const [inputVal, setInputVal] = useState('');
   const [promptY, setPromptY] = useState(null);
   const promptTimerRef = useRef(null);
@@ -1043,7 +1046,7 @@ export default function TerminalPane({
           />
         ) : (
           <span
-            onDoubleClick={() => { setRenameVal(label); setIsRenaming(true); }}
+            onDoubleClick={() => { setRenameVal(sessionName || label); setIsRenaming(true); }}
             style={{ fontSize: 11, fontWeight: 600, color: colors.text.secondary, fontFamily: fb, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
           >
             {label}
