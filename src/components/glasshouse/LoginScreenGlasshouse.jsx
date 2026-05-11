@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { login, resetPassword } from '../../lib/authService';
 import StarfieldBackground from './StarfieldBackground';
+import LegalDocViewer from './LegalDocViewer';
 import logoFull from '../../assets/branding/logo-full.png';
 
 // Glasshouse-themed login screen. Only handles sign-in + forgot-password —
@@ -14,6 +15,7 @@ export default function LoginScreenGlasshouse({ onAuthenticated, onStartSignup }
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [viewingDoc, setViewingDoc] = useState(null); // 'tos' | 'privacy' | null
   const [focused, setFocused] = useState(null);
 
   const handleSubmit = useCallback(async (e) => {
@@ -114,8 +116,13 @@ export default function LoginScreenGlasshouse({ onAuthenticated, onStartSignup }
       </div>
 
       <div style={s.legal}>
-        By signing in you agree to our <span style={s.legalLink}>Terms of Service</span> and <span style={s.legalLink}>Privacy Policy</span>
+        By signing in you agree to our{' '}
+        <button type="button" onClick={() => setViewingDoc('tos')} style={s.legalLink}>Terms of Service</button>
+        {' '}and{' '}
+        <button type="button" onClick={() => setViewingDoc('privacy')} style={s.legalLink}>Privacy Policy</button>
       </div>
+
+      {viewingDoc && <LegalDocViewer docId={viewingDoc} onClose={() => setViewingDoc(null)} />}
     </div>
   );
 }
@@ -293,7 +300,11 @@ const s = {
     fontFamily: 'var(--gh-font-mono, monospace)',
   },
   legalLink: {
-    color: '#94a3b8', cursor: 'pointer',
+    // <button> styled to flow with surrounding "By signing in..." text.
+    all: 'unset', cursor: 'pointer',
+    display: 'inline',
+    color: '#94a3b8',
+    fontFamily: 'inherit', fontSize: 'inherit',
     textDecoration: 'underline', textUnderlineOffset: 2,
   },
 };
