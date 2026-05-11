@@ -3,6 +3,7 @@
 // for SECRET_KEYS via keytar).
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import LegalDocViewer from './LegalDocViewer';
 import { getKeybindings, saveKeybinding, resetKeybindings, detectConflicts } from '../../lib/keybindings';
 
 const FONT_DISP = 'var(--gh-font-display, "Outfit", sans-serif)';
@@ -184,26 +185,19 @@ function PlaceholderSection({ title, body }) {
 // ---------------------------------------------------------------------------
 
 const LEGAL_DOCS = [
-  { id: 'tos',      label: 'Terms of Service',          file: 'TERMS_OF_SERVICE.md' },
-  { id: 'privacy',  label: 'Privacy Policy',            file: 'PRIVACY_POLICY.md' },
-  { id: 'aup',      label: 'Acceptable Use Policy',     file: 'ACCEPTABLE_USE_POLICY.md' },
-  { id: 'ai',       label: 'AI Output Disclaimer',      file: 'AI_OUTPUT_DISCLAIMER.md' },
-  { id: 'cookies',  label: 'Cookie & Local Storage',    file: 'COOKIE_POLICY.md' },
-  { id: 'dmca',     label: 'DMCA Policy',               file: 'DMCA_POLICY.md' },
-  { id: 'license',  label: 'Software License',          file: '../LICENSE' },
+  { id: 'tos',      label: 'Terms of Service' },
+  { id: 'privacy',  label: 'Privacy Policy' },
+  { id: 'aup',      label: 'Acceptable Use Policy' },
+  { id: 'ai',       label: 'AI Output Disclaimer' },
+  { id: 'cookies',  label: 'Cookie & Local Storage' },
+  { id: 'dmca',     label: 'DMCA Policy' },
+  { id: 'license',  label: 'Software License' },
 ];
 
 function LegalSection() {
+  const [viewingDoc, setViewingDoc] = useState(null);
   const acceptedAt = (() => { try { return localStorage.getItem('flowade.legal.acceptedAt'); } catch { return null; } })();
   const acceptedVersion = (() => { try { return localStorage.getItem('flowade.legal.acceptedVersion'); } catch { return null; } })();
-
-  const open = (file) => {
-    // Repo-relative path on the public GitHub mirror. Once flowade.com is
-    // live, swap to flowade.com/terms etc.
-    const base = 'https://github.com/koltonvandergriff/flowade-app/blob/main/legal/';
-    const url = file.startsWith('../') ? base + file.replace('../', '../') : base + file;
-    window.flowade?.shell?.openExternal?.(url);
-  };
 
   return (
     <>
@@ -229,11 +223,11 @@ function LegalSection() {
         {LEGAL_DOCS.map(doc => (
           <button
             key={doc.id}
-            onClick={() => open(doc.file)}
+            onClick={() => setViewingDoc(doc.id)}
             style={legalStyles.docRow}
           >
             <span style={legalStyles.docLabel}>{doc.label}</span>
-            <span style={legalStyles.docOpen}>Open ↗</span>
+            <span style={legalStyles.docOpen}>Read →</span>
           </button>
         ))}
       </div>
@@ -241,6 +235,8 @@ function LegalSection() {
       <p style={{ ...s.cardSub, marginTop: 14, fontSize: 11 }}>
         Questions? legal@flowade.com — for privacy-rights requests use privacy@flowade.com.
       </p>
+
+      {viewingDoc && <LegalDocViewer docId={viewingDoc} onClose={() => setViewingDoc(null)} />}
     </>
   );
 }

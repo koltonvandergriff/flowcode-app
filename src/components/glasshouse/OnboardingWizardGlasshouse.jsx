@@ -1,5 +1,6 @@
 import { useState, useCallback, useMemo, useEffect } from 'react';
 import { signup } from '../../lib/authService';
+import LegalDocViewer from './LegalDocViewer';
 import logoFa from '../../assets/branding/logo-fa.png';
 
 // Glasshouse onboarding wizard. 5 steps: Account → Payment → AI keys →
@@ -123,6 +124,7 @@ function StepAccount({ data, onSubmit, onBackToLogin }) {
   const [password, setPassword] = useState('');
   const [name, setName] = useState(data.name || '');
   const [legalAccepted, setLegalAccepted] = useState(false);
+  const [viewingDoc, setViewingDoc] = useState(null); // 'tos' | 'privacy' | 'ai' | null
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -195,29 +197,19 @@ function StepAccount({ data, onSubmit, onBackToLogin }) {
           />
           <span style={card.consentText}>
             I have read and agree to the{' '}
-            <a
-              href="https://github.com/koltonvandergriff/flowade-app/blob/main/legal/TERMS_OF_SERVICE.md"
-              onClick={(e) => { e.preventDefault(); window.flowade?.shell?.openExternal?.('https://github.com/koltonvandergriff/flowade-app/blob/main/legal/TERMS_OF_SERVICE.md'); }}
-              style={card.consentLink}
-            >Terms of Service</a>
+            <button type="button" onClick={() => setViewingDoc('tos')} style={card.consentLink}>Terms of Service</button>
             {', '}
-            <a
-              href="https://github.com/koltonvandergriff/flowade-app/blob/main/legal/PRIVACY_POLICY.md"
-              onClick={(e) => { e.preventDefault(); window.flowade?.shell?.openExternal?.('https://github.com/koltonvandergriff/flowade-app/blob/main/legal/PRIVACY_POLICY.md'); }}
-              style={card.consentLink}
-            >Privacy Policy</a>
+            <button type="button" onClick={() => setViewingDoc('privacy')} style={card.consentLink}>Privacy Policy</button>
             {', and '}
-            <a
-              href="https://github.com/koltonvandergriff/flowade-app/blob/main/legal/AI_OUTPUT_DISCLAIMER.md"
-              onClick={(e) => { e.preventDefault(); window.flowade?.shell?.openExternal?.('https://github.com/koltonvandergriff/flowade-app/blob/main/legal/AI_OUTPUT_DISCLAIMER.md'); }}
-              style={card.consentLink}
-            >AI Output Disclaimer</a>
+            <button type="button" onClick={() => setViewingDoc('ai')} style={card.consentLink}>AI Output Disclaimer</button>
             . I understand that AI-generated output may be incorrect and that I'm responsible for reviewing it before relying on it.
           </span>
         </label>
 
         {error && <div style={card.errorBanner}>{error}</div>}
       </form>
+
+      {viewingDoc && <LegalDocViewer docId={viewingDoc} onClose={() => setViewingDoc(null)} />}
 
       <div style={card.bottom}>
         <button type="button" onClick={onBackToLogin} style={btn.signInLink}>
@@ -693,8 +685,13 @@ const card = {
     lineHeight: 1.55,
   },
   consentLink: {
+    // <button> element styled to look + flow like inline text.
+    all: 'unset',
+    cursor: 'pointer',
+    display: 'inline',
     color: '#4de6f0',
-    textDecoration: 'none',
+    fontFamily: 'inherit',
+    fontSize: 'inherit',
     borderBottom: '1px dotted rgba(77,230,240,0.5)',
     fontWeight: 600,
   },
