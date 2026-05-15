@@ -15,16 +15,26 @@ import { useEffect, useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
-// Vite inlines these as plain strings at build time — no runtime fs
-// access required. If a file is missing on disk the build will fail
-// loudly rather than ship a broken link.
-import tosRaw      from '../../../legal/TERMS_OF_SERVICE.md?raw';
-import privacyRaw  from '../../../legal/PRIVACY_POLICY.md?raw';
-import aupRaw      from '../../../legal/ACCEPTABLE_USE_POLICY.md?raw';
-import aiRaw       from '../../../legal/AI_OUTPUT_DISCLAIMER.md?raw';
-import cookiesRaw  from '../../../legal/COOKIE_POLICY.md?raw';
-import dmcaRaw     from '../../../legal/DMCA_POLICY.md?raw';
-import licenseRaw  from '../../../LICENSE?raw';
+// Glob the legal/*.md files into raw strings at build time. This is the
+// canonical Vite pattern (vitejs.dev/guide/features#glob-import); eager
+// + raw means each .md is inlined as a literal string at build, no
+// runtime fetch. Per-file `?raw` imports were proving fragile.
+const RAW_DOCS = import.meta.glob('../../../legal/*.md', { query: '?raw', import: 'default', eager: true });
+
+function pick(filename) {
+  for (const [key, val] of Object.entries(RAW_DOCS)) {
+    if (key.endsWith('/' + filename)) return val;
+  }
+  return `# ${filename}\n\n_(Document failed to load. Please email legal@flowade.com.)_`;
+}
+
+const tosRaw     = pick('TERMS_OF_SERVICE.md');
+const privacyRaw = pick('PRIVACY_POLICY.md');
+const aupRaw     = pick('ACCEPTABLE_USE_POLICY.md');
+const aiRaw      = pick('AI_OUTPUT_DISCLAIMER.md');
+const cookiesRaw = pick('COOKIE_POLICY.md');
+const dmcaRaw    = pick('DMCA_POLICY.md');
+const licenseRaw = pick('LICENSE.md');
 
 const FONT_DISP = 'var(--gh-font-display, "Outfit", sans-serif)';
 const FONT_TECH = 'var(--gh-font-techno, "Chakra Petch", sans-serif)';

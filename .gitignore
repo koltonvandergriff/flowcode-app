@@ -7,3 +7,11 @@ release/
 *.log
 .DS_Store
 Thumbs.db
+
+# Generated deploy bundle (regenerate from schema.sql + migrations)
+supabase/_bundle.sql
+
+# Brand source files belong under src/assets/branding/ or assets/ — keep root clean
+/flowcode logo.png
+/wavey flow.png
+/*.png

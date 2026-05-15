@@ -298,6 +298,7 @@ const s = {
     fontSize: 11, color: '#4a5168', textAlign: 'center',
     maxWidth: 380, lineHeight: 1.6,
     fontFamily: 'var(--gh-font-mono, monospace)',
+    WebkitAppRegion: 'no-drag',
   },
   legalLink: {
     // <button> styled to flow with surrounding "By signing in..." text.
