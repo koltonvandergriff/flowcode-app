@@ -58,6 +58,12 @@ class SwarmBridge extends EventEmitter {
     this._token = null;
     this._heartbeat = null;
     this._clients = new Set();
+    this._methods = new Map();
+  }
+
+  registerMethod(name, handler) {
+    if (typeof name !== 'string' || typeof handler !== 'function') return;
+    this._methods.set(name, handler);
   }
 
   getPort() {
@@ -165,12 +171,20 @@ class SwarmBridge extends EventEmitter {
       this._safeSend(ws, { id: null, error: { code: -32600, message: 'invalid request' } });
       return;
     }
-    const { id, method } = msg;
+    const { id, method, params } = msg;
     if (method === 'ping') {
       this._safeSend(ws, { id, result: 'pong' });
       return;
     }
-    this._safeSend(ws, { id, error: { code: -32601, message: 'method not found' } });
+    const handler = this._methods.get(method);
+    if (!handler) {
+      this._safeSend(ws, { id, error: { code: -32601, message: 'method not found' } });
+      return;
+    }
+    Promise.resolve()
+      .then(() => handler(params))
+      .then((result) => this._safeSend(ws, { id, result }))
+      .catch((err) => this._safeSend(ws, { id, error: { code: -32000, message: err?.message || String(err), data: err?.code || undefined } }));
   }
 
   _safeSend(ws, obj) {

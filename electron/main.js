@@ -18,6 +18,13 @@ import { MemoryStore } from './memoryStore.js';
 import { TerminalNotifier } from './terminalNotifier.js';
 import { setAuthSession, getAuthUser, clearAuthSession, supabase } from './supabaseClient.js';
 import { readFileSync, writeFileSync, readdirSync, statSync, existsSync, mkdirSync } from 'fs';
+import { swarmBridge } from './swarmBridge.js';
+import { paneRegistry } from './paneRegistry.js';
+import { registerTerminalHandlers } from './swarmTerminalHandlers.js';
+import { registerLeaseBridgeHandlers } from './leaseRegistry.js';
+import { swarmChannel } from './swarmChannel.js';
+import { registerOrchestrationHandlers } from './swarmOrchestration.js';
+import { setMemoryStore as setSwarmAuditMemoryStore } from './swarmAudit.js';
 
 const execFileAsync = promisify(execFile);
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -57,6 +64,12 @@ memoryStore.setOnStatusChange((status) => {
 const terminalNotifier = new TerminalNotifier(envStore, (event) => {
   mainWindow?.webContents.send('notify:event', event);
 });
+
+// Inject the live MemoryStore into the swarm audit helper so spawn /
+// kill / claim / cancel events surface in the user's vault under
+// Swarm / Audit (per migration 010). Audit failures are swallowed
+// inside swarmAudit.js so they never block a swarm run.
+setSwarmAuditMemoryStore(memoryStore);
 
 (async () => {
   // Wait for the keychain to populate the in-memory secret cache so that
@@ -1070,6 +1083,30 @@ app.whenReady().then(() => {
     claudeUsageWatcher.pruneOldEntries();
     claudeUsageWatcher.pruneStaleCursors();
   }, 24 * 60 * 60 * 1000);
+
+  // Swarm bridge. Only starts when the user has flipped
+  // 'swarm.allowAgentSpawn' on in Settings → Integrations. When OFF,
+  // start() returns { started: false } and we no-op — the WS server
+  // never binds, the keychain token is never generated, no port file
+  // is written. With the toggle ON, register every bridge handler so
+  // the MCP server can dispatch terminal / lease / channel / swarm
+  // methods over the wire.
+  (async () => {
+    try {
+      const r = await swarmBridge.start({ settingsStore });
+      if (r.started) {
+        registerTerminalHandlers(swarmBridge, { paneRegistry, ptyManager });
+        registerLeaseBridgeHandlers(swarmBridge);
+        swarmChannel.registerBridge(swarmBridge);
+        registerOrchestrationHandlers(swarmBridge, { ptyManager });
+        console.log(`[Swarm] Bridge listening on 127.0.0.1:${r.port}`);
+      } else {
+        console.log('[Swarm] Bridge disabled (swarm.allowAgentSpawn = false)');
+      }
+    } catch (e) {
+      console.error('[Swarm] Bridge failed to start:', e?.message || e);
+    }
+  })();
 });
 
 app.on('window-all-closed', () => {
@@ -1079,6 +1116,7 @@ app.on('window-all-closed', () => {
 app.on('before-quit', () => {
   forceQuit = true;
   claudeUsageWatcher.stop();
+  swarmBridge.stop().catch(() => {});
 });
 
 app.on('activate', () => {
