@@ -5,6 +5,8 @@ import { isGlasshouseEnabled } from '../lib/glasshouseTheme';
 import { WorkspaceContext } from '../contexts/WorkspaceContext';
 import { SettingsContext } from '../contexts/SettingsContext';
 import TerminalPane from './TerminalPane';
+import PaneBadge from './swarm/PaneBadge';
+import { getSwarmPaneStyle } from '../lib/swarmTheme';
 import ResizeHandle from './ResizeHandle';
 import TerminalWizardGlasshouse from './glasshouse/TerminalWizardGlasshouse';
 import MassCloseDialogGlasshouse from './glasshouse/MassCloseDialogGlasshouse';
@@ -287,8 +289,22 @@ export default function TerminalGrid({ dangerFlags, onToggleDanger }) {
     return null;
   }
 
-  const renderPane = (t, style) => (
-    <div key={t.id} style={style} onClick={() => setFocusedId(t.id)}>
+  const renderPane = (t, style) => {
+    // Swarm-spawned panes carry ownerType + teamId. Plain user panes
+    // have neither — getSwarmPaneStyle returns null, badge renders null,
+    // and the wrapper looks exactly like before.
+    const swarmStyle = getSwarmPaneStyle({ ownerType: t.ownerType, teamId: t.teamId });
+    return (
+    <div
+      key={t.id}
+      style={{ position: 'relative', ...(swarmStyle ? { borderRadius: 12, ...swarmStyle } : {}), ...style }}
+      onClick={() => setFocusedId(t.id)}
+    >
+      {(t.ownerType && t.ownerType !== 'user') ? (
+        <div style={{ position: 'absolute', top: 6, right: 10, zIndex: 5, pointerEvents: 'none' }}>
+          <PaneBadge ownerType={t.ownerType} teamId={t.teamId} workerIndex={t.workerIndex} />
+        </div>
+      ) : null}
       {t.pending ? (
         <div style={{
           flex: 1, display: 'flex', flexDirection: 'column',
@@ -333,7 +349,8 @@ export default function TerminalGrid({ dangerFlags, onToggleDanger }) {
         />
       )}
     </div>
-  );
+    );
+  };
 
   const rows = layoutDef.rows || 1;
   const colSizes = paneSizes?.col || Array(layoutDef.cols).fill(100 / layoutDef.cols);

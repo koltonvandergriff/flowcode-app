@@ -5,6 +5,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import LegalDocViewer from './LegalDocViewer';
 import { getKeybindings, saveKeybinding, resetKeybindings, detectConflicts } from '../../lib/keybindings';
+import SwarmSettingsPanel, { SWARM_SETTING_KEYS, SWARM_SETTING_DEFAULTS } from '../swarm/SwarmSettingsPanel';
 
 const FONT_DISP = 'var(--gh-font-display, "Outfit", sans-serif)';
 const FONT_TECH = 'var(--gh-font-techno, "Chakra Petch", sans-serif)';
@@ -579,10 +580,39 @@ const INTEGRATIONS = [
 ];
 
 function IntegrationsSection() {
+  // Swarm settings live in the same SettingsStore as the rest of the
+  // app. Load on mount, write through on change so the WS bridge in
+  // main.js picks up flips at next app start (or immediately for
+  // settings that have hot-reload paths).
+  const [swarm, setSwarm] = useState(SWARM_SETTING_DEFAULTS);
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const entries = await Promise.all(
+          Object.entries(SWARM_SETTING_KEYS).map(async ([k, key]) => {
+            const v = await window.flowade?.settings?.get?.(key);
+            return [k, (v === undefined || v === null) ? SWARM_SETTING_DEFAULTS[k] : v];
+          })
+        );
+        if (alive) setSwarm(Object.fromEntries(entries));
+      } catch {}
+    })();
+    return () => { alive = false; };
+  }, []);
+
+  const onSwarmChange = useCallback((key, value) => {
+    setSwarm((s) => ({ ...s, [key]: value }));
+    const storeKey = SWARM_SETTING_KEYS[key];
+    if (storeKey) window.flowade?.settings?.set?.(storeKey, value).catch(() => {});
+  }, []);
+
   return (
     <>
       <h2 style={s.cardH2}>Integrations</h2>
       <p style={s.cardSub}>Connect FlowADE to the tools your team already uses. New integrations land at the start of every quarter.</p>
+
+      <SwarmSettingsPanel values={swarm} onChange={onSwarmChange} />
 
       <div style={ig.grid}>
         {INTEGRATIONS.map(it => (
