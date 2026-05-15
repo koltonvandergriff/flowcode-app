@@ -89,7 +89,7 @@ Each stage: build → unit/sanity check → `npx vite build` smoke → commit on
 |---|---|---|---|---|
 | 1 | Pre-flight (commit 4m, worktree, baseline) | ✓ DONE | `887bd06` Phase 4m pushed. vite build green 2.92s. Worktree created. | `887bd06` |
 | 2 | Pane registry + ring buffer (`electron/paneRegistry.js`) | ✓ DONE | vite build green 2.38s; node --check passes; ESM module; not yet wired into ptyManager | `f74531f` |
-| 3 | WS bridge server + auth token (`electron/swarmBridge.js`) | pending | App boots with toggle OFF (no bridge); toggle ON writes port file + keytar token | — |
+| 3 | WS bridge server + auth token (`electron/swarmBridge.js`) | ✓ DONE | vite build green 2.37s; node --check passes; gated by settingsStore.swarm.allowAgentSpawn; standalone, not yet wired into main.js | `b4d2118` |
 | 4 | MCP swarm client (`mcp-server/swarmClient.js`) | pending | Existing MCP tools still respond when bridge down; client surfaces "swarm unavailable" cleanly | — |
 | 5 | MCP terminal tools (6) (`mcp-server/tools/terminal.js`) | pending | CLI: spawn → list → send → read → wait → kill round-trip green | — |
 | 6 | File-lease registry + claim/release/list/validate_plan | pending | Claim/conflict/release unit script green; overlap plan rejected | — |
