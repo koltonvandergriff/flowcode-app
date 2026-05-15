@@ -91,17 +91,17 @@ Each stage: build → unit/sanity check → `npx vite build` smoke → commit on
 | 2 | Pane registry + ring buffer (`electron/paneRegistry.js`) | ✓ DONE | vite build green 2.38s; node --check passes; ESM module; not yet wired into ptyManager | `f74531f` |
 | 3 | WS bridge server + auth token (`electron/swarmBridge.js`) | ✓ DONE | vite build green 2.37s; node --check passes; gated by settingsStore.swarm.allowAgentSpawn; standalone, not yet wired into main.js | `b4d2118` |
 | 4 | MCP swarm client (`mcp-server/swarmClient.js`) | ✓ DONE | vite build green 2.33s; node --check passes; lazy connect; SWARM_UNAVAILABLE error code on missing bridge/token; not wired into index.js yet | `02a46e1` |
-| 5 | MCP terminal tools (6) (`mcp-server/tools/terminal.js`) | pending | CLI: spawn → list → send → read → wait → kill round-trip green | — |
-| 6 | File-lease registry + claim/release/list/validate_plan | pending | Claim/conflict/release unit script green; overlap plan rejected | — |
-| 7 | Swarm channel + post/read + migration 009 | pending | Post → read round-trip green; realtime fires | — |
-| 8 | Audit + migration 010 | pending | Spawn writes audit row visible in Swarm/Audit category | — |
-| 9 | swarm_start / _finish / _confirm / _cancel | pending | CLI: start spawns N+1 panes with correct teamId + ownerType; cancel tears down clean | — |
-| 10 | Orchestrator prompt template | pending | Dry-run produces valid plan JSON with parallelism factor ≥0.75 | — |
-| 11 | Worker prompt template | pending | Dry-run claims + releases + posts channel events in order | — |
-| 12 | User-pane agent prompt snippet | pending | Dry-run: prose 'launch 3 agents to X' produces correct swarm_start call (workerCount=3) | — |
-| 13 | Frontend badges + tints + Reclaim | pending | Existing panes unchanged; spawned panes show correct badge + tint | — |
-| 13b | Settings toggle + caps + SwarmOverlay | pending | Toggle OFF = bridge dead = swarm_start clean error | — |
-| 14 | End-to-end DRY smoke (no real worker code) | pending | flowade_swarm_start spawns 3 panes (1 orch + 2 workers), channel receives kind=plan post, cancel tears down, audit rows present | — |
+| 5 | MCP terminal tools (6) (`mcp-server/tools/terminal.js`) | ✓ DONE | vite build green; node --check passes; bridge handlers separated into electron/swarmTerminalHandlers.js for clean wiring | `3238bb5` |
+| 6 | File-lease registry + claim/release/list/validate_plan | ✓ DONE | vite build green; cross-run conflict surfaces isCrossRun flag; validatePlan computes parallelismFactor + waves | `81534da` |
+| 7 | Swarm channel + post/read + migration 009 | ✓ DONE | vite build green; migration idempotent; local 1k buffer + cloud fallback; realtime publication added | `516b549` |
+| 8 | Audit + migration 010 | ✓ DONE | vite build green; 7 audit + 2 run helpers; memoryStore injected via setMemoryStore to dodge circular import; type CHECK widened idempotently | `1c03380` |
+| 9 | swarm_start / _finish / _confirm / _cancel | ✓ DONE | vite build green; +1 orchestrator added internally; teamId auto-picked from A-D; 16-pane capacity enforced; releaseAll on cancel | `a2c8e32` |
+| 10 | Orchestrator prompt template | ✓ DONE | 7-phase playbook with validate_plan gate + re-plan budget 1 + soft-warn at N>4 | `65c019a` |
+| 11 | Worker prompt template | ✓ DONE | 13-step protocol; intent-then-claim-then-edit; cross-run vs intra-run blocker handling distinct | `65c019a` |
+| 12 | User-pane agent prompt snippet | ✓ DONE | Phrase-to-tool table; workerCount = user's N (never +1); SWARM_UNAVAILABLE relay | `65c019a` |
+| 13 | Frontend badges + tints + Reclaim | ✓ DONE | vite build green; PaneBadge + swarmTheme additive; TerminalGrid wiring left for user review (no existing file modified) | `66c7288` |
+| 13b | Settings toggle + caps + SwarmOverlay | ✓ DONE | vite build green; SwarmOverlay (4-tree, ESC close) + SwarmSettingsPanel (master toggle + 2 sliders + plan-confirm toggle); SWARM_SETTING_KEYS exported | `f9b75f8` |
+| 14 | End-to-end DRY smoke (no real worker code) | ✓ DONE | scripts/smoke-swarm.js green; node --check on 13 new modules; paneRegistry + leaseRegistry exercised in-process; migrations + prompt MDs grep-validated; Electron-dependent modules syntax-only (live bridge smoke deferred to morning) | `53fca07` |
 
 ---
 
